@@ -560,7 +560,8 @@ document.getElementById('btnBackup').onclick=backup;
 document.getElementById('btnRestaurar').onclick=restaurar;
 document.getElementById('btnSalvarConfig').onclick=salvarConfig;
 document.getElementById('btnLimparProdutos').onclick=async()=>{if(confirm('Apagar toda a base local de produtos deste computador?')){await clearStore('produtos');await refreshAll()}};
-document.getElementById('btnApagarHistorico').onclick=async()=>{if(confirm('Apagar todo o histórico local deste computador?')){await clearStore('pesagens');await refreshAll()}};\ndocument.getElementById('btnExcluirUltima').onclick=excluirUltimaPesagem;
+document.getElementById('btnApagarHistorico').onclick=async()=>{if(confirm('Apagar todo o histórico local deste computador?')){await clearStore('pesagens');await refreshAll()}};
+document.getElementById('btnExcluirUltima').onclick=excluirUltimaPesagem;
 
 (async()=>{
   await openDB();
