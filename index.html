@@ -296,28 +296,27 @@ async function findByBarcode(code){
 
 function renderProduto(){
   const el=document.getElementById('produtoInfo');
-  if(!produtoAtual){el.className='product-box muted';el.innerHTML='Nenhum produto identificado.';return}
+  if(!produtoAtual){
+    el.className='product-box muted';
+    el.innerHTML='Aguardando leitura do código.';
+    return;
+  }
   el.className='product-box';
   el.innerHTML=`<b>${produtoAtual.codProduto}</b> — ${produtoAtual.descricao}<br>
   Grade 1: <b>${produtoAtual.grade1||'-'}</b> &nbsp; Grade 2: <b>${produtoAtual.grade2||'-'}</b> &nbsp; Grade 3: <b>${produtoAtual.grade3||'-'}</b><br>
   Leitura: <span class="pill">${produtoAtual.tipoLeitura}</span> &nbsp; Quantidade: <b>${produtoAtual.quantidade}</b>`;
-  document.getElementById('pesoPadrao').textContent=fmtKg(produtoAtual.pesoPadrao);
-  document.getElementById('tolerancia').textContent=produtoAtual.tolerancia==null?'-':'± '+fmtKg(produtoAtual.tolerancia);
-  avaliarPeso();
 }
 
 function avaliarPeso(){
-  const st=document.getElementById('pesoStatus'), dif=document.getElementById('diferenca');
+  const st=document.getElementById('pesoStatus');
   document.getElementById('pesoAtual').textContent=fmtKg(pesoAtualNum);
-  if(pesoAtualNum==null){st.className='status warn';st.textContent='Aguardando leitura';dif.textContent='-';document.getElementById('btnSalvar').disabled=true;return}
-  if(!produtoAtual){st.className='status warn';st.textContent='Peso lido — aguardando produto';dif.textContent='-';document.getElementById('btnSalvar').disabled=true;return}
-  if(produtoAtual.pesoPadrao==null||produtoAtual.tolerancia==null){
-    st.className='status ok';st.textContent='Peso lido';dif.textContent='-';document.getElementById('btnSalvar').disabled=false;return;
+  if(pesoAtualNum==null){
+    st.className='status warn';
+    st.textContent='Aguardando pesagem';
+    return;
   }
-  const d=pesoAtualNum-produtoAtual.pesoPadrao; dif.textContent=(d>=0?'+':'')+fmtKg(d);
-  const aprovado=Math.abs(d)<=produtoAtual.tolerancia;
-  st.className='status '+(aprovado?'ok':'bad'); st.textContent=aprovado?'PESO APROVADO':'PESO FORA DA TOLERÂNCIA';
-  document.getElementById('btnSalvar').disabled=false;
+  st.className='status ok';
+  st.textContent='PESO LIDO';
 }
 
 async function connectSerial(){
@@ -337,30 +336,60 @@ function setSerialStatus(on){
   document.getElementById('kpiBalanca').textContent=on?'Conectada':'Desconectada';
 }
 async function lerPeso(){
-  if(!serialPort) return alert('Conecte a balança em Configurações.');
+  if(!serialPort){
+    alert('Conecte a balança em Configurações.');
+    return false;
+  }
   try{
+    pesoAtualNum=null;
     const writer=serialPort.writable.getWriter();
     await writer.write(new Uint8Array([0x04]));
     writer.releaseLock();
+
     serialReader=serialPort.readable.getReader();
-    let chunks=[],done=false;
-    const timeout=new Promise(resolve=>setTimeout(()=>resolve('timeout'),1200));
-    while(true){
-      const read=serialReader.read();
-      const r=await Promise.race([read,timeout]);
-      if(r==='timeout') break;
+    let chunks=[];
+    const inicio=Date.now();
+
+    while(Date.now()-inicio < 1800){
+      const r=await Promise.race([
+        serialReader.read(),
+        new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),250))
+      ]);
+      if(r && r.timeout){
+        if(chunks.length>0) break;
+        continue;
+      }
       if(r.value) chunks.push(...r.value);
-      if(r.done||chunks.length>80) break;
+      if(r.done) break;
+      const parcial=new TextDecoder('latin1').decode(new Uint8Array(chunks));
+      if(/PESO\(L\)\s*:\s*[0-9]+[,.][0-9]+/i.test(parcial)) break;
     }
-    await serialReader.cancel(); serialReader.releaseLock(); serialReader=null;
+
+    try{await serialReader.cancel()}catch(_){}
+    serialReader.releaseLock();
+    serialReader=null;
+
     const txt=new TextDecoder('latin1').decode(new Uint8Array(chunks));
     const m=txt.match(/PESO\(L\)\s*:\s*([0-9]+[,.][0-9]+)/i);
-    if(!m) return alert('A balança respondeu, mas o peso não foi identificado.\n\nResposta: '+txt);
+
+    if(!m){
+      alert('A balança respondeu, mas o peso não foi identificado.\n\nResposta: '+txt);
+      return false;
+    }
+
     pesoAtualNum=Number(m[1].replace(',','.'));
     avaliarPeso();
+    return true;
   }catch(e){
-    try{if(serialReader){serialReader.releaseLock();serialReader=null}}catch(_){}
+    try{
+      if(serialReader){
+        try{await serialReader.cancel()}catch(_){}
+        serialReader.releaseLock();
+        serialReader=null;
+      }
+    }catch(_){}
     alert('Erro na leitura da balança: '+e.message);
+    return false;
   }
 }
 
@@ -459,9 +488,9 @@ async function processarCodigoAutomatico(code){
   document.getElementById('pesoStatus').className='status warn';
   document.getElementById('pesoStatus').textContent='LENDO PESO...';
 
-  await lerPeso();
+  const leituraOk=await lerPeso();
 
-  if(pesoAtualNum==null){
+  if(!leituraOk || pesoAtualNum==null){
     document.getElementById('barcode').select();
     return;
   }
