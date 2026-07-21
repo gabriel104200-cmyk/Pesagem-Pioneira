@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Pesagem Urano</title>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root{
+      --bg:#f4f6f8; --card:#fff; --text:#1f2937; --muted:#6b7280;
+      --primary:#0f4c81; --primary2:#0b6aa2; --ok:#15803d; --bad:#b91c1c;
+      --warn:#a16207; --line:#dbe2ea;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+    header{background:linear-gradient(90deg,var(--primary),var(--primary2));color:#fff;padding:18px 24px}
+    header h1{margin:0;font-size:24px}
+    header small{opacity:.9}
+    .layout{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 79px)}
+    nav{background:#17202a;color:#fff;padding:16px 10px}
+    nav button{width:100%;text-align:left;border:0;background:transparent;color:#e5e7eb;padding:13px 12px;border-radius:8px;font-size:15px;cursor:pointer;margin-bottom:5px}
+    nav button:hover,nav button.active{background:#26384a;color:#fff}
+    main{padding:22px}
+    .page{display:none}.page.active{display:block}
+    .grid{display:grid;grid-template-columns:repeat(12,1fr);gap:16px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;box-shadow:0 2px 7px rgba(0,0,0,.04)}
+    .span-4{grid-column:span 4}.span-6{grid-column:span 6}.span-8{grid-column:span 8}.span-12{grid-column:span 12}
+    h2{margin-top:0} h3{margin-top:0}
+    label{display:block;font-size:13px;font-weight:bold;margin-bottom:6px}
+    input,select{width:100%;padding:11px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:15px;background:#fff}
+    .field{margin-bottom:13px}
+    .btn{border:0;border-radius:8px;padding:11px 16px;font-weight:bold;cursor:pointer;font-size:14px}
+    .btn-primary{background:var(--primary);color:#fff}.btn-ok{background:var(--ok);color:#fff}
+    .btn-light{background:#e8eef4;color:#1f2937}.btn-danger{background:var(--bad);color:#fff}
+    .btn:disabled{opacity:.45;cursor:not-allowed}
+    .actions{display:flex;gap:10px;flex-wrap:wrap}
+    .weight{font-size:58px;font-weight:800;text-align:center;margin:15px 0}
+    .status{text-align:center;font-weight:bold;padding:9px;border-radius:8px}
+    .ok{background:#dcfce7;color:#166534}.bad{background:#fee2e2;color:#991b1b}.warn{background:#fef3c7;color:#92400e}
+    .product-box{font-size:15px;line-height:1.7}
+    .muted{color:var(--muted)}
+    table{width:100%;border-collapse:collapse;font-size:14px}
+    th,td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left}
+    th{background:#f8fafc;position:sticky;top:0}
+    .table-wrap{overflow:auto;max-height:520px;border:1px solid #e5e7eb;border-radius:8px}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;background:#e8eef4}
+    .big-input{font-size:22px;padding:16px;border:2px solid #94a3b8}
+    .kpi{font-size:30px;font-weight:bold}
+    .note{padding:12px;background:#eef6ff;border-left:4px solid var(--primary);border-radius:6px}
+    @media(max-width:900px){
+      .layout{grid-template-columns:1fr}nav{display:flex;overflow:auto;gap:5px}nav button{min-width:180px;margin:0}
+      .span-4,.span-6,.span-8{grid-column:span 12}
+    }
+    @media print{
+      body *{visibility:hidden}
+      #labelPrint,#labelPrint *{visibility:visible}
+      #labelPrint{position:absolute;left:0;top:0;width:100%;padding:8mm}
+    }
+    #labelPrint{display:none}
+  </style>
+</head>
+<body>
+<header>
+  <h1>⚖️ Sistema de Pesagem Urano</h1>
+  <small>Cadastro de produtos • leitura de código • peso • histórico • etiqueta</small>
+</header>
+
+<div class="layout">
+  <nav>
+    <button class="nav active" data-page="inicio">🏠 Início</button>
+    <button class="nav" data-page="pesagem">⚖️ Pesagem</button>
+    <button class="nav" data-page="produtos">📦 Produtos</button>
+    <button class="nav" data-page="historico">📋 Histórico</button>
+    <button class="nav" data-page="backup">💾 Backup</button>
+    <button class="nav" data-page="config">⚙️ Configurações</button>
+  </nav>
+
+  <main>
+    <section id="inicio" class="page active">
+      <h2>Início</h2>
+      <div class="grid">
+        <div class="card span-4"><div class="muted">Produtos carregados</div><div id="kpiProdutos" class="kpi">0</div></div>
+        <div class="card span-4"><div class="muted">Pesagens registradas</div><div id="kpiPesagens" class="kpi">0</div></div>
+        <div class="card span-4"><div class="muted">Balança</div><div id="kpiBalanca" class="kpi" style="font-size:22px">Desconectada</div></div>
+        <div class="card span-12">
+          <h3>Fluxo de trabalho</h3>
+          <div class="note">
+            1. Importe a planilha de produtos uma vez neste computador.<br>
+            2. Conecte a balança em <b>Configurações</b>.<br>
+            3. Vá em <b>Pesagem</b>, passe o código de barras e clique em <b>Ler peso</b>.<br>
+            4. Salve a pesagem e imprima a etiqueta na impressora disponível naquele computador.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="pesagem" class="page">
+      <h2>Pesagem</h2>
+      <div class="grid">
+        <div class="card span-6">
+          <div class="field">
+            <label>Código de barras</label>
+            <input id="barcode" class="big-input" autocomplete="off" placeholder="Passe o leitor e pressione Enter" />
+          </div>
+          <div id="produtoInfo" class="product-box muted">Nenhum produto identificado.</div>
+        </div>
+
+        <div class="card span-6">
+          <div class="muted" style="text-align:center">PESO ATUAL</div>
+          <div id="pesoAtual" class="weight">0,00 kg</div>
+          <div id="pesoStatus" class="status warn">Aguardando leitura</div>
+          <div class="actions" style="justify-content:center;margin-top:15px">
+            <button id="btnLerPeso" class="btn btn-primary">⚖️ Ler peso</button>
+          </div>
+        </div>
+
+        <div class="card span-12">
+          <div class="grid">
+            <div class="span-4"><b>Peso padrão:</b> <span id="pesoPadrao">-</span></div>
+            <div class="span-4"><b>Tolerância:</b> <span id="tolerancia">-</span></div>
+            <div class="span-4"><b>Diferença:</b> <span id="diferenca">-</span></div>
+          </div>
+          <div class="actions" style="margin-top:18px">
+            <button id="btnSalvar" class="btn btn-ok" disabled>💾 Salvar pesagem</button>
+            <button id="btnImprimir" class="btn btn-primary" disabled>🏷️ Imprimir etiqueta</button>
+            <button id="btnLimpar" class="btn btn-light">Limpar</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="produtos" class="page">
+      <h2>Produtos</h2>
+      <div class="card">
+        <div class="actions">
+          <input id="arquivoExcel" type="file" accept=".xlsx,.xls,.csv" style="max-width:420px">
+          <button id="btnImportar" class="btn btn-primary">Importar planilha</button>
+          <button id="btnLimparProdutos" class="btn btn-danger">Apagar base local</button>
+        </div>
+        <p class="muted">A base importada fica salva apenas neste navegador/computador. A planilha original não é alterada.</p>
+        <div class="field">
+          <input id="buscaProduto" placeholder="Pesquisar código, descrição ou grade..." />
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Cód. produto</th><th>Descrição</th><th>Grade 1</th><th>Grade 2</th><th>Grade 3</th><th>Unidade</th><th>Cód. unidade</th><th>Caixa</th><th>Cód. caixa</th></tr>
+            </thead>
+            <tbody id="tbodyProdutos"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="historico" class="page">
+      <h2>Histórico de Pesagens</h2>
+      <div class="card">
+        <div class="actions" style="margin-bottom:12px">
+          <button id="btnExportarCSV" class="btn btn-primary">Exportar CSV</button>
+          <button id="btnApagarHistorico" class="btn btn-danger">Apagar histórico local</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Data/Hora</th><th>Etiqueta</th><th>Produto</th><th>Descrição</th><th>Grades</th><th>Qtd.</th><th>Peso</th><th>Código lido</th></tr></thead>
+            <tbody id="tbodyHistorico"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="backup" class="page">
+      <h2>Backup</h2>
+      <div class="card">
+        <p>Faça backup da base local de produtos e do histórico deste computador.</p>
+        <div class="actions">
+          <button id="btnBackup" class="btn btn-primary">⬇️ Exportar backup JSON</button>
+          <input id="arquivoBackup" type="file" accept=".json" style="max-width:390px">
+          <button id="btnRestaurar" class="btn btn-ok">⬆️ Restaurar backup</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="config" class="page">
+      <h2>Configurações</h2>
+      <div class="grid">
+        <div class="card span-6">
+          <h3>Balança Urano</h3>
+          <p>Status: <b id="statusSerial">Desconectada</b></p>
+          <div class="actions">
+            <button id="btnConectar" class="btn btn-primary">🔌 Conectar balança</button>
+            <button id="btnDesconectar" class="btn btn-light">Desconectar</button>
+          </div>
+          <p class="muted">Configuração usada: 9600 baud, 8 bits, sem paridade, 2 stop bits. O navegador pedirá para escolher o dispositivo CP210x.</p>
+        </div>
+        <div class="card span-6">
+          <h3>Impressora</h3>
+          <p>A impressão é feita pelo próprio navegador. Ao clicar em <b>Imprimir etiqueta</b>, selecione a Elgin ou outra impressora instalada neste computador.</p>
+          <div class="field"><label>Largura da etiqueta (mm)</label><input id="larguraEtiqueta" type="number" value="100"></div>
+          <div class="field"><label>Altura da etiqueta (mm)</label><input id="alturaEtiqueta" type="number" value="70"></div>
+          <button id="btnSalvarConfig" class="btn btn-primary">Salvar configuração</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="labelPrint"></div>
+
+<script>
+const DB_NAME='PesagemUranoDB', DB_VERSION=1;
+let db, serialPort=null, serialReader=null;
+let produtoAtual=null, pesoAtualNum=null, codigoLido='', ultimoRegistro=null;
+
+function openDB(){
+  return new Promise((resolve,reject)=>{
+    const req=indexedDB.open(DB_NAME,DB_VERSION);
+    req.onupgradeneeded=e=>{
+      const d=e.target.result;
+      if(!d.objectStoreNames.contains('produtos')) d.createObjectStore('produtos',{keyPath:'_id'});
+      if(!d.objectStoreNames.contains('pesagens')) d.createObjectStore('pesagens',{keyPath:'id'});
+    };
+    req.onsuccess=e=>{db=e.target.result;resolve(db)};
+    req.onerror=()=>reject(req.error);
+  });
+}
+function tx(store,mode='readonly'){return db.transaction(store,mode).objectStore(store)}
+function getAll(store){return new Promise((r,j)=>{const q=tx(store).getAll();q.onsuccess=()=>r(q.result||[]);q.onerror=()=>j(q.error)})}
+function clearStore(store){return new Promise((r,j)=>{const q=tx(store,'readwrite').clear();q.onsuccess=()=>r();q.onerror=()=>j(q.error)})}
+function putMany(store,items){return new Promise((resolve,reject)=>{const tr=db.transaction(store,'readwrite'),s=tr.objectStore(store);items.forEach(x=>s.put(x));tr.oncomplete=resolve;tr.onerror=()=>reject(tr.error)})}
+function putOne(store,item){return new Promise((r,j)=>{const q=tx(store,'readwrite').put(item);q.onsuccess=()=>r();q.onerror=()=>j(q.error)})}
+
+const norm=s=>String(s??'').trim();
+const keynorm=s=>norm(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]/g,'');
+function getField(row, aliases){
+  const map={}; Object.keys(row).forEach(k=>map[keynorm(k)]=row[k]);
+  for(const a of aliases){const k=keynorm(a);if(k in map)return map[k]}
+  return '';
+}
+function toNum(v){
+  if(v===null||v===undefined||v==='') return null;
+  let s=String(v).trim().replace(/\s/g,'');
+  if(s.includes(',')&&s.includes('.')) s=s.replace(/\./g,'').replace(',','.');
+  else s=s.replace(',','.');
+  const n=Number(s); return Number.isFinite(n)?n:null;
+}
+function fmtKg(v){return v==null?'-':v.toFixed(2).replace('.',',')+' kg'}
+
+async function importarExcel(){
+  const f=document.getElementById('arquivoExcel').files[0];
+  if(!f) return alert('Selecione uma planilha.');
+  const data=await f.arrayBuffer();
+  const wb=XLSX.read(data,{type:'array'});
+  const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{defval:''});
+  const produtos=rows.map((r,i)=>{
+    const codProd=getField(r,['COD_PRODUTO','COD PRODUTO','CÓD PRODUTO','CODIGO PRODUTO','CÓDIGO PRODUTO']);
+    const desc=getField(r,['DESCRICAO','DESCRIÇÃO']);
+    const g1=getField(r,['GRADE1','GRADE 1']);
+    const g2=getField(r,['GRADE2','GRADE 2']);
+    const g3=getField(r,['GRADE3','GRADE 3']);
+    const unidade=getField(r,['UNIDADE','QTD UNIDADE','QUANTIDADE UNIDADE']);
+    const codUn=getField(r,['COD_UNIDADE','COD UNIDADE','CÓD UNIDADE','CODIGO UNIDADE','CÓDIGO UNIDADE']);
+    const caixa=getField(r,['CAIXA','QTD CAIXA','QUANTIDADE CAIXA']);
+    const codCx=getField(r,['COD_CAIXA','COD CAIXA','CÓD CAIXA','CODIGO CAIXA','CÓDIGO CAIXA']);
+    const peso=toNum(getField(r,['PESO_PADRAO','PESO PADRAO','PESO PADRÃO']));
+    const tol=toNum(getField(r,['TOLERANCIA','TOLERÂNCIA']));
+    return {_id:`${i}_${norm(codProd)}_${norm(codCx)}_${norm(codUn)}`,codProduto:norm(codProd),descricao:norm(desc),grade1:norm(g1),grade2:norm(g2),grade3:norm(g3),unidade:norm(unidade),codUnidade:norm(codUn),caixa:norm(caixa),codCaixa:norm(codCx),pesoPadrao:peso,tolerancia:tol};
+  }).filter(p=>p.codProduto||p.codUnidade||p.codCaixa||p.descricao);
+  await clearStore('produtos'); await putMany('produtos',produtos);
+  alert(`${produtos.length} produtos importados.`);
+  await refreshAll();
+}
+
+async function findByBarcode(code){
+  const produtos=await getAll('produtos');
+  const c=norm(code);
+  const p=produtos.find(x=>x.codCaixa===c || x.codUnidade===c);
+  if(!p) return null;
+  const tipo=p.codCaixa===c?'CAIXA':'UNIDADE';
+  let qtd=tipo==='CAIXA'?toNum(p.caixa):toNum(p.unidade);
+  if(qtd==null) qtd=tipo==='CAIXA'?1:1;
+  return {...p,tipoLeitura:tipo,quantidade:qtd};
+}
+
+function renderProduto(){
+  const el=document.getElementById('produtoInfo');
+  if(!produtoAtual){el.className='product-box muted';el.innerHTML='Nenhum produto identificado.';return}
+  el.className='product-box';
+  el.innerHTML=`<b>${produtoAtual.codProduto}</b> — ${produtoAtual.descricao}<br>
+  Grade 1: <b>${produtoAtual.grade1||'-'}</b> &nbsp; Grade 2: <b>${produtoAtual.grade2||'-'}</b> &nbsp; Grade 3: <b>${produtoAtual.grade3||'-'}</b><br>
+  Leitura: <span class="pill">${produtoAtual.tipoLeitura}</span> &nbsp; Quantidade: <b>${produtoAtual.quantidade}</b>`;
+  document.getElementById('pesoPadrao').textContent=fmtKg(produtoAtual.pesoPadrao);
+  document.getElementById('tolerancia').textContent=produtoAtual.tolerancia==null?'-':'± '+fmtKg(produtoAtual.tolerancia);
+  avaliarPeso();
+}
+
+function avaliarPeso(){
+  const st=document.getElementById('pesoStatus'), dif=document.getElementById('diferenca');
+  document.getElementById('pesoAtual').textContent=fmtKg(pesoAtualNum);
+  if(pesoAtualNum==null){st.className='status warn';st.textContent='Aguardando leitura';dif.textContent='-';document.getElementById('btnSalvar').disabled=true;return}
+  if(!produtoAtual){st.className='status warn';st.textContent='Peso lido — aguardando produto';dif.textContent='-';document.getElementById('btnSalvar').disabled=true;return}
+  if(produtoAtual.pesoPadrao==null||produtoAtual.tolerancia==null){
+    st.className='status ok';st.textContent='Peso lido';dif.textContent='-';document.getElementById('btnSalvar').disabled=false;return;
+  }
+  const d=pesoAtualNum-produtoAtual.pesoPadrao; dif.textContent=(d>=0?'+':'')+fmtKg(d);
+  const aprovado=Math.abs(d)<=produtoAtual.tolerancia;
+  st.className='status '+(aprovado?'ok':'bad'); st.textContent=aprovado?'PESO APROVADO':'PESO FORA DA TOLERÂNCIA';
+  document.getElementById('btnSalvar').disabled=false;
+}
+
+async function connectSerial(){
+  if(!('serial' in navigator)) return alert('Este navegador não possui suporte ao Web Serial. Use Google Chrome ou Microsoft Edge em um computador Windows.');
+  try{
+    serialPort=await navigator.serial.requestPort();
+    await serialPort.open({baudRate:9600,dataBits:8,stopBits:2,parity:'none',flowControl:'none'});
+    setSerialStatus(true);
+  }catch(e){alert('Não foi possível conectar à balança: '+e.message)}
+}
+async function disconnectSerial(){
+  try{if(serialReader){await serialReader.cancel();serialReader.releaseLock();serialReader=null} if(serialPort){await serialPort.close();serialPort=null}}catch(e){}
+  setSerialStatus(false);
+}
+function setSerialStatus(on){
+  document.getElementById('statusSerial').textContent=on?'Conectada':'Desconectada';
+  document.getElementById('kpiBalanca').textContent=on?'Conectada':'Desconectada';
+}
+async function lerPeso(){
+  if(!serialPort) return alert('Conecte a balança em Configurações.');
+  try{
+    const writer=serialPort.writable.getWriter();
+    await writer.write(new Uint8Array([0x04]));
+    writer.releaseLock();
+    serialReader=serialPort.readable.getReader();
+    let chunks=[],done=false;
+    const timeout=new Promise(resolve=>setTimeout(()=>resolve('timeout'),1200));
+    while(true){
+      const read=serialReader.read();
+      const r=await Promise.race([read,timeout]);
+      if(r==='timeout') break;
+      if(r.value) chunks.push(...r.value);
+      if(r.done||chunks.length>80) break;
+    }
+    await serialReader.cancel(); serialReader.releaseLock(); serialReader=null;
+    const txt=new TextDecoder('latin1').decode(new Uint8Array(chunks));
+    const m=txt.match(/PESO\(L\)\s*:\s*([0-9]+[,.][0-9]+)/i);
+    if(!m) return alert('A balança respondeu, mas o peso não foi identificado.\n\nResposta: '+txt);
+    pesoAtualNum=Number(m[1].replace(',','.'));
+    avaliarPeso();
+  }catch(e){
+    try{if(serialReader){serialReader.releaseLock();serialReader=null}}catch(_){}
+    alert('Erro na leitura da balança: '+e.message);
+  }
+}
+
+function gerarEtiquetaId(){
+  const d=new Date(), pad=n=>String(n).padStart(2,'0');
+  return `CX-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+async function salvarPesagem(){
+  if(!produtoAtual||pesoAtualNum==null) return;
+  const id=gerarEtiquetaId(), now=new Date();
+  const reg={id,dataISO:now.toISOString(),dataHora:now.toLocaleString('pt-BR'),etiqueta:id,codProduto:produtoAtual.codProduto,descricao:produtoAtual.descricao,grade1:produtoAtual.grade1,grade2:produtoAtual.grade2,grade3:produtoAtual.grade3,quantidade:produtoAtual.quantidade,peso:pesoAtualNum,codigoLido,tipoLeitura:produtoAtual.tipoLeitura};
+  await putOne('pesagens',reg); ultimoRegistro=reg;
+  document.getElementById('btnImprimir').disabled=false;
+  alert('Pesagem salva: '+id);
+  await refreshHistorico(); await refreshKPIs();
+}
+function imprimirEtiqueta(){
+  const r=ultimoRegistro;
+  if(!r) return alert('Salve uma pesagem antes de imprimir.');
+  const w=Number(localStorage.getItem('labelW')||100), h=Number(localStorage.getItem('labelH')||70);
+  const box=document.getElementById('labelPrint');
+  box.style.display='block';
+  box.innerHTML=`<style>@page{size:${w}mm ${h}mm;margin:0}</style>
+  <div style="width:${w}mm;height:${h}mm;padding:5mm;font-family:Arial;border:1px solid #000">
+  <div style="font-size:18px;font-weight:bold;text-align:center">CAPAS PIONEIRA</div>
+  <hr><div><b>REF.:</b> ${r.codProduto}</div><div style="font-size:16px;font-weight:bold">${r.descricao}</div>
+  <div><b>GRADES:</b> ${r.grade1||'-'} / ${r.grade2||'-'} / ${r.grade3||'-'}</div>
+  <div><b>QTD.:</b> ${r.quantidade}</div>
+  <div style="font-size:26px;font-weight:bold;margin:5px 0"><b>PESO:</b> ${fmtKg(r.peso)}</div>
+  <div><b>ETIQUETA:</b> ${r.etiqueta}</div><div>${r.dataHora}</div>
+  <div style="margin-top:5px;font-family:monospace;font-size:14px">${r.codigoLido}</div></div>`;
+  window.print(); setTimeout(()=>box.style.display='none',500);
+}
+function limparPesagem(){
+  produtoAtual=null;pesoAtualNum=null;codigoLido='';ultimoRegistro=null;
+  document.getElementById('barcode').value='';document.getElementById('pesoPadrao').textContent='-';document.getElementById('tolerancia').textContent='-';document.getElementById('diferenca').textContent='-';
+  document.getElementById('btnSalvar').disabled=true;document.getElementById('btnImprimir').disabled=true;renderProduto();avaliarPeso();document.getElementById('barcode').focus();
+}
+
+async function refreshProdutos(){
+  const q=keynorm(document.getElementById('buscaProduto').value), arr=await getAll('produtos');
+  const list=!q?arr:arr.filter(p=>keynorm(Object.values(p).join(' ')).includes(q));
+  document.getElementById('tbodyProdutos').innerHTML=list.slice(0,2000).map(p=>`<tr><td>${p.codProduto}</td><td>${p.descricao}</td><td>${p.grade1}</td><td>${p.grade2}</td><td>${p.grade3}</td><td>${p.unidade}</td><td>${p.codUnidade}</td><td>${p.caixa}</td><td>${p.codCaixa}</td></tr>`).join('');
+}
+async function refreshHistorico(){
+  const arr=(await getAll('pesagens')).sort((a,b)=>b.dataISO.localeCompare(a.dataISO));
+  document.getElementById('tbodyHistorico').innerHTML=arr.map(r=>`<tr><td>${r.dataHora}</td><td>${r.etiqueta}</td><td>${r.codProduto}</td><td>${r.descricao}</td><td>${r.grade1||'-'} / ${r.grade2||'-'} / ${r.grade3||'-'}</td><td>${r.quantidade}</td><td>${fmtKg(r.peso)}</td><td>${r.codigoLido}</td></tr>`).join('');
+}
+async function refreshKPIs(){
+  document.getElementById('kpiProdutos').textContent=(await getAll('produtos')).length;
+  document.getElementById('kpiPesagens').textContent=(await getAll('pesagens')).length;
+}
+async function refreshAll(){await refreshProdutos();await refreshHistorico();await refreshKPIs()}
+
+async function exportCSV(){
+  const arr=await getAll('pesagens');
+  const rows=[['Data/Hora','Etiqueta','Cod Produto','Descricao','Grade1','Grade2','Grade3','Quantidade','Peso','Codigo Lido','Tipo']];
+  arr.sort((a,b)=>a.dataISO.localeCompare(b.dataISO)).forEach(r=>rows.push([r.dataHora,r.etiqueta,r.codProduto,r.descricao,r.grade1,r.grade2,r.grade3,r.quantidade,String(r.peso).replace('.',','),r.codigoLido,r.tipoLeitura]));
+  const csv=rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  downloadBlob(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),'historico_pesagens.csv');
+}
+function downloadBlob(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+async function backup(){
+  const obj={versao:1,data:new Date().toISOString(),produtos:await getAll('produtos'),pesagens:await getAll('pesagens')};
+  downloadBlob(new Blob([JSON.stringify(obj,null,2)],{type:'application/json'}),`backup_pesagem_${new Date().toISOString().slice(0,10)}.json`);
+}
+async function restaurar(){
+  const f=document.getElementById('arquivoBackup').files[0];if(!f)return alert('Selecione o backup JSON.');
+  const obj=JSON.parse(await f.text());
+  if(!Array.isArray(obj.produtos)||!Array.isArray(obj.pesagens))return alert('Backup inválido.');
+  await clearStore('produtos');await clearStore('pesagens');await putMany('produtos',obj.produtos);await putMany('pesagens',obj.pesagens);await refreshAll();alert('Backup restaurado.');
+}
+function salvarConfig(){
+  localStorage.setItem('labelW',document.getElementById('larguraEtiqueta').value||100);
+  localStorage.setItem('labelH',document.getElementById('alturaEtiqueta').value||70);
+  alert('Configuração salva neste computador.');
+}
+
+document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.nav').forEach(x=>x.classList.remove('active'));b.classList.add('active');
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));document.getElementById(b.dataset.page).classList.add('active');
+  if(b.dataset.page==='pesagem')setTimeout(()=>document.getElementById('barcode').focus(),100);
+});
+document.getElementById('barcode').addEventListener('keydown',async e=>{
+  if(e.key!=='Enter')return;e.preventDefault();codigoLido=norm(e.target.value);
+  produtoAtual=await findByBarcode(codigoLido);
+  if(!produtoAtual){renderProduto();alert('Código não encontrado na base de produtos.');return}
+  renderProduto();
+});
+document.getElementById('btnImportar').onclick=importarExcel;
+document.getElementById('btnConectar').onclick=connectSerial;
+document.getElementById('btnDesconectar').onclick=disconnectSerial;
+document.getElementById('btnLerPeso').onclick=lerPeso;
+document.getElementById('btnSalvar').onclick=salvarPesagem;
+document.getElementById('btnImprimir').onclick=imprimirEtiqueta;
+document.getElementById('btnLimpar').onclick=limparPesagem;
+document.getElementById('buscaProduto').oninput=refreshProdutos;
+document.getElementById('btnExportarCSV').onclick=exportCSV;
+document.getElementById('btnBackup').onclick=backup;
+document.getElementById('btnRestaurar').onclick=restaurar;
+document.getElementById('btnSalvarConfig').onclick=salvarConfig;
+document.getElementById('btnLimparProdutos').onclick=async()=>{if(confirm('Apagar toda a base local de produtos deste computador?')){await clearStore('produtos');await refreshAll()}};
+document.getElementById('btnApagarHistorico').onclick=async()=>{if(confirm('Apagar todo o histórico local deste computador?')){await clearStore('pesagens');await refreshAll()}};
+
+(async()=>{
+  await openDB();
+  document.getElementById('larguraEtiqueta').value=localStorage.getItem('labelW')||100;
+  document.getElementById('alturaEtiqueta').value=localStorage.getItem('labelH')||70;
+  await refreshAll();
+})();
+</script>
+</body>
+</html>
