@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sistema de Pesagem Urano</title>
+  <title>Sistema de Pesagem Pioneira</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root{
@@ -17,7 +17,7 @@
     header h1{margin:0;font-size:24px}
     header small{opacity:.9}
     .layout{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 79px)}
-    nav{background:#17202a;color:#fff;padding:16px 10px}
+    nav{background:#17202a;color:#fff;padding:16px 10px;display:flex;flex-direction:column}
     nav button{width:100%;text-align:left;border:0;background:transparent;color:#e5e7eb;padding:13px 12px;border-radius:8px;font-size:15px;cursor:pointer;margin-bottom:5px}
     nav button:hover,nav button.active{background:#26384a;color:#fff}
     main{padding:22px}
@@ -61,8 +61,8 @@
 </head>
 <body>
 <header>
-  <h1>⚖️ Sistema de Pesagem Urano</h1>
-  <small>Cadastro de produtos • leitura de código • peso • histórico • etiqueta</small>
+  <h1>⚖️ Sistema de Pesagem Pioneira</h1>
+  
 </header>
 
 <div class="layout">
@@ -73,6 +73,9 @@
     <button class="nav" data-page="historico">📋 Histórico</button>
     <button class="nav" data-page="backup">💾 Backup</button>
     <button class="nav" data-page="config">⚙️ Configurações</button>
+    <div style="margin-top:auto;padding:18px 12px 6px;color:#9ca3af;font-size:12px;line-height:1.5;border-top:1px solid #2b3a49;">
+      Criado por<br><b style="color:#e5e7eb">Gabriel Andrade</b>
+    </div>
   </nav>
 
   <main>
@@ -100,30 +103,39 @@
         <div class="card span-6">
           <div class="field">
             <label>Código de barras</label>
-            <input id="barcode" class="big-input" autocomplete="off" placeholder="Passe o leitor e pressione Enter" />
+            <input id="barcode" class="big-input" autocomplete="off" placeholder="Coloque a caixa na balança e passe o leitor" />
           </div>
-          <div id="produtoInfo" class="product-box muted">Nenhum produto identificado.</div>
+          <div id="produtoInfo" class="product-box muted">Aguardando leitura do código.</div>
         </div>
 
         <div class="card span-6">
           <div class="muted" style="text-align:center">PESO ATUAL</div>
           <div id="pesoAtual" class="weight">0,00 kg</div>
-          <div id="pesoStatus" class="status warn">Aguardando leitura</div>
-          <div class="actions" style="justify-content:center;margin-top:15px">
-            <button id="btnLerPeso" class="btn btn-primary">⚖️ Ler peso</button>
-          </div>
+          <div id="pesoStatus" class="status warn">Aguardando pesagem</div>
         </div>
 
         <div class="card span-12">
-          <div class="grid">
-            <div class="span-4"><b>Peso padrão:</b> <span id="pesoPadrao">-</span></div>
-            <div class="span-4"><b>Tolerância:</b> <span id="tolerancia">-</span></div>
-            <div class="span-4"><b>Diferença:</b> <span id="diferenca">-</span></div>
+          <div class="actions" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h3 style="margin:0">Últimos produtos pesados</h3>
+            <button id="btnExcluirUltima" class="btn btn-danger">Excluir última pesagem</button>
           </div>
-          <div class="actions" style="margin-top:18px">
-            <button id="btnSalvar" class="btn btn-ok" disabled>💾 Salvar pesagem</button>
-            <button id="btnImprimir" class="btn btn-primary" disabled>🏷️ Imprimir etiqueta</button>
-            <button id="btnLimpar" class="btn btn-light">Limpar</button>
+          <div class="table-wrap" style="max-height:430px">
+            <table>
+              <thead>
+                <tr>
+                  <th>Hora</th>
+                  <th>Cód. Produto</th>
+                  <th>Descrição</th>
+                  <th>Grade 1</th>
+                  <th>Grade 2</th>
+                  <th>Grade 3</th>
+                  <th>Qtd.</th>
+                  <th>Peso</th>
+                  <th>Código lido</th>
+                </tr>
+              </thead>
+              <tbody id="tbodyPesagemAtual"></tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -388,6 +400,107 @@ function limparPesagem(){
   document.getElementById('btnSalvar').disabled=true;document.getElementById('btnImprimir').disabled=true;renderProduto();avaliarPeso();document.getElementById('barcode').focus();
 }
 
+
+async function refreshPesagemAtual(){
+  const arr=(await getAll('pesagens')).sort((a,b)=>b.dataISO.localeCompare(a.dataISO)).slice(0,30);
+  const tb=document.getElementById('tbodyPesagemAtual');
+  if(!tb) return;
+  tb.innerHTML=arr.map(r=>`<tr>
+    <td>${new Date(r.dataISO).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</td>
+    <td>${r.codProduto}</td>
+    <td>${r.descricao}</td>
+    <td>${r.grade1||'-'}</td>
+    <td>${r.grade2||'-'}</td>
+    <td>${r.grade3||'-'}</td>
+    <td>${r.quantidade}</td>
+    <td>${fmtKg(r.peso)}</td>
+    <td>${r.codigoLido}</td>
+  </tr>`).join('');
+}
+
+async function excluirUltimaPesagem(){
+  const arr=(await getAll('pesagens')).sort((a,b)=>b.dataISO.localeCompare(a.dataISO));
+  if(!arr.length) return alert('Não há pesagens para excluir.');
+  const ultima=arr[0];
+  if(!confirm(`Excluir a última pesagem?\n\n${ultima.codProduto} - ${ultima.descricao}\nPeso: ${fmtKg(ultima.peso)}`)) return;
+  await new Promise((resolve,reject)=>{
+    const q=tx('pesagens','readwrite').delete(ultima.id);
+    q.onsuccess=()=>resolve();
+    q.onerror=()=>reject(q.error);
+  });
+  await refreshHistorico();
+  await refreshPesagemAtual();
+  await refreshKPIs();
+}
+
+async function processarCodigoAutomatico(code){
+  codigoLido=norm(code);
+  if(!codigoLido) return;
+
+  produtoAtual=await findByBarcode(codigoLido);
+  if(!produtoAtual){
+    renderProduto();
+    document.getElementById('pesoStatus').className='status bad';
+    document.getElementById('pesoStatus').textContent='CÓDIGO NÃO ENCONTRADO';
+    alert('Código não encontrado na base de produtos.');
+    document.getElementById('barcode').select();
+    return;
+  }
+
+  renderProduto();
+
+  if(!serialPort){
+    document.getElementById('pesoStatus').className='status warn';
+    document.getElementById('pesoStatus').textContent='BALANÇA DESCONECTADA';
+    alert('Conecte a balança em Configurações.');
+    return;
+  }
+
+  document.getElementById('pesoStatus').className='status warn';
+  document.getElementById('pesoStatus').textContent='LENDO PESO...';
+
+  await lerPeso();
+
+  if(pesoAtualNum==null){
+    document.getElementById('barcode').select();
+    return;
+  }
+
+  const id=gerarEtiquetaId(), now=new Date();
+  const reg={
+    id,
+    dataISO:now.toISOString(),
+    dataHora:now.toLocaleString('pt-BR'),
+    etiqueta:id,
+    codProduto:produtoAtual.codProduto,
+    descricao:produtoAtual.descricao,
+    grade1:produtoAtual.grade1,
+    grade2:produtoAtual.grade2,
+    grade3:produtoAtual.grade3,
+    quantidade:produtoAtual.quantidade,
+    peso:pesoAtualNum,
+    codigoLido,
+    tipoLeitura:produtoAtual.tipoLeitura
+  };
+
+  await putOne('pesagens',reg);
+  ultimoRegistro=reg;
+
+  document.getElementById('pesoStatus').className='status ok';
+  document.getElementById('pesoStatus').textContent='PESAGEM REGISTRADA';
+
+  await refreshHistorico();
+  await refreshPesagemAtual();
+  await refreshKPIs();
+
+  produtoAtual=null;
+  codigoLido='';
+  document.getElementById('barcode').value='';
+  document.getElementById('produtoInfo').className='product-box muted';
+  document.getElementById('produtoInfo').textContent='Pesagem salva. Aguardando próximo código.';
+  setTimeout(()=>document.getElementById('barcode').focus(),100);
+}
+
 async function refreshProdutos(){
   const q=keynorm(document.getElementById('buscaProduto').value), arr=await getAll('produtos');
   const list=!q?arr:arr.filter(p=>keynorm(Object.values(p).join(' ')).includes(q));
@@ -401,7 +514,7 @@ async function refreshKPIs(){
   document.getElementById('kpiProdutos').textContent=(await getAll('produtos')).length;
   document.getElementById('kpiPesagens').textContent=(await getAll('pesagens')).length;
 }
-async function refreshAll(){await refreshProdutos();await refreshHistorico();await refreshKPIs()}
+async function refreshAll(){await refreshProdutos();await refreshHistorico();await refreshPesagemAtual();await refreshKPIs()}
 
 async function exportCSV(){
   const arr=await getAll('pesagens');
@@ -433,25 +546,21 @@ document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{
   if(b.dataset.page==='pesagem')setTimeout(()=>document.getElementById('barcode').focus(),100);
 });
 document.getElementById('barcode').addEventListener('keydown',async e=>{
-  if(e.key!=='Enter')return;e.preventDefault();codigoLido=norm(e.target.value);
-  produtoAtual=await findByBarcode(codigoLido);
-  if(!produtoAtual){renderProduto();alert('Código não encontrado na base de produtos.');return}
-  renderProduto();
+  if(e.key!=='Enter') return;
+  e.preventDefault();
+  const code=norm(e.target.value);
+  await processarCodigoAutomatico(code);
 });
 document.getElementById('btnImportar').onclick=importarExcel;
 document.getElementById('btnConectar').onclick=connectSerial;
 document.getElementById('btnDesconectar').onclick=disconnectSerial;
-document.getElementById('btnLerPeso').onclick=lerPeso;
-document.getElementById('btnSalvar').onclick=salvarPesagem;
-document.getElementById('btnImprimir').onclick=imprimirEtiqueta;
-document.getElementById('btnLimpar').onclick=limparPesagem;
 document.getElementById('buscaProduto').oninput=refreshProdutos;
 document.getElementById('btnExportarCSV').onclick=exportCSV;
 document.getElementById('btnBackup').onclick=backup;
 document.getElementById('btnRestaurar').onclick=restaurar;
 document.getElementById('btnSalvarConfig').onclick=salvarConfig;
 document.getElementById('btnLimparProdutos').onclick=async()=>{if(confirm('Apagar toda a base local de produtos deste computador?')){await clearStore('produtos');await refreshAll()}};
-document.getElementById('btnApagarHistorico').onclick=async()=>{if(confirm('Apagar todo o histórico local deste computador?')){await clearStore('pesagens');await refreshAll()}};
+document.getElementById('btnApagarHistorico').onclick=async()=>{if(confirm('Apagar todo o histórico local deste computador?')){await clearStore('pesagens');await refreshAll()}};\ndocument.getElementById('btnExcluirUltima').onclick=excluirUltimaPesagem;
 
 (async()=>{
   await openDB();
