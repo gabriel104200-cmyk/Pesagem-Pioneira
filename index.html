@@ -340,8 +340,31 @@ async function lerPeso(){
     alert('Conecte a balança em Configurações.');
     return false;
   }
+
   try{
     pesoAtualNum=null;
+
+    // Limpa qualquer resposta antiga que tenha ficado pendente no buffer.
+    // Isso evita registrar o peso da leitura anterior.
+    if(serialPort.readable){
+      const drainReader=serialPort.readable.getReader();
+      const fimLimpeza=Date.now()+180;
+      try{
+        while(Date.now()<fimLimpeza){
+          const r=await Promise.race([
+            drainReader.read(),
+            new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),35))
+          ]);
+          if(r && r.timeout) continue;
+          if(r.done) break;
+        }
+      }finally{
+        try{await drainReader.cancel()}catch(_){}
+        drainReader.releaseLock();
+      }
+    }
+
+    // Solicita uma nova leitura à Urano.
     const writer=serialPort.writable.getWriter();
     await writer.write(new Uint8Array([0x04]));
     writer.releaseLock();
@@ -350,19 +373,24 @@ async function lerPeso(){
     let chunks=[];
     const inicio=Date.now();
 
-    while(Date.now()-inicio < 1800){
+    // Aguarda a resposta completa. A Urano costuma devolver um bloco maior,
+    // então não encerramos assim que aparece o primeiro "PESO(L)".
+    while(Date.now()-inicio < 2200){
       const r=await Promise.race([
         serialReader.read(),
-        new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),250))
+        new Promise(resolve=>setTimeout(()=>resolve({timeout:true}),180))
       ]);
+
       if(r && r.timeout){
         if(chunks.length>0) break;
         continue;
       }
+
       if(r.value) chunks.push(...r.value);
       if(r.done) break;
-      const parcial=new TextDecoder('latin1').decode(new Uint8Array(chunks));
-      if(/PESO\(L\)\s*:\s*[0-9]+[,.][0-9]+/i.test(parcial)) break;
+
+      // O teste via PowerShell mostrou respostas por volta de 69 bytes.
+      if(chunks.length >= 60) break;
     }
 
     try{await serialReader.cancel()}catch(_){}
@@ -370,16 +398,22 @@ async function lerPeso(){
     serialReader=null;
 
     const txt=new TextDecoder('latin1').decode(new Uint8Array(chunks));
-    const m=txt.match(/PESO\(L\)\s*:\s*([0-9]+[,.][0-9]+)/i);
 
-    if(!m){
+    // Se por algum motivo vier mais de uma leitura no mesmo bloco,
+    // usa sempre a ÚLTIMA, que é a mais recente.
+    const encontrados=[...txt.matchAll(/PESO\(L\)\s*:\s*([0-9]+[,.][0-9]+)/gi)];
+
+    if(!encontrados.length){
       alert('A balança respondeu, mas o peso não foi identificado.\n\nResposta: '+txt);
       return false;
     }
 
-    pesoAtualNum=Number(m[1].replace(',','.'));
+    const pesoTexto=encontrados[encontrados.length-1][1];
+    pesoAtualNum=Number(pesoTexto.replace(',','.'));
+
     avaliarPeso();
     return true;
+
   }catch(e){
     try{
       if(serialReader){
@@ -388,6 +422,7 @@ async function lerPeso(){
         serialReader=null;
       }
     }catch(_){}
+
     alert('Erro na leitura da balança: '+e.message);
     return false;
   }
