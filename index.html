@@ -553,24 +553,25 @@ function htmlEtiqueta(r, teste=false){
   const w=Number(localStorage.getItem('labelW')||89.5);
   const h=Number(localStorage.getItem('labelH')||60);
 
-  const referencia=teste?'TESTE':(r.codProduto||'');
-  const descricao=teste?'CONJUNTO DE PVC COMBATE GOLA':(r.descricao||'');
+  const descricao=teste?'CONJUNTO DE PVC - COMBATE GOLA':(r.descricao||'');
   const grade1=teste?'MASCULINO':(r.grade1||'-');
   const grade2=teste?'PRETO':(r.grade2||'-');
   const grade3=teste?'G':(r.grade3||'-');
   const qtd=teste?'10':(r.quantidade||'');
-  const peso=teste?'13,56 kg':fmtKg(r.peso);
-  const dataHora=teste
-    ? new Date().toLocaleString('pt-BR')
-    : (r.dataHora||new Date().toLocaleString('pt-BR'));
+  const peso=teste?'13,56 KG':fmtKg(r.peso).toUpperCase();
+  const codigo=teste?'7898712119598':(r.codigoLido||'');
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <title>Etiqueta</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
-  @page { size:${w}mm ${h}mm; margin:0; }
+  @page{
+    size:${w}mm ${h}mm;
+    margin:0;
+  }
 
   html,body{
     width:${w}mm !important;
@@ -592,166 +593,140 @@ function htmlEtiqueta(r, teste=false){
     color:#000;
   }
 
-  .label{
+  .etiqueta{
     width:${w}mm;
     height:${h}mm;
-    border:0.5mm solid #000;
-    display:grid;
-    grid-template-rows:8mm 10mm 18mm 10mm 1fr 5mm;
+    padding:2mm 2.5mm 1.6mm;
     overflow:hidden;
-    background:#fff;
+    display:grid;
+    grid-template-rows:15mm 14mm 15mm 11mm 1fr;
   }
 
-  .empresa{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:18pt;
-    font-weight:900;
-    line-height:1;
-    border-bottom:0.45mm solid #000;
-    white-space:nowrap;
-  }
-
+  /* TOPO */
   .topo{
     display:grid;
-    grid-template-columns:66% 34%;
-    border-bottom:0.45mm solid #000;
+    grid-template-columns:49% 51%;
+    align-items:start;
+    min-height:0;
   }
 
-  .refarea{
-    display:grid;
-    grid-template-rows:1fr 5mm;
-    border-right:0.45mm solid #000;
-    min-width:0;
-  }
-
-  .ref{
-    display:flex;
-    align-items:center;
-    padding:0 1.2mm;
-    font-size:14pt;
-    font-weight:900;
-    white-space:nowrap;
+  .codigo-area{
     overflow:hidden;
   }
 
-  .faixa{
-    background:#000;
-    color:#fff;
+  #barcode-svg{
+    width:100%;
+    height:10mm;
+    display:block;
+  }
+
+  .numero{
+    margin-top:-0.3mm;
+    font-size:10pt;
+    line-height:1;
+    font-weight:900;
+    letter-spacing:.25mm;
+  }
+
+  .marca{
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:11pt;
+    height:12mm;
+    font-size:20pt;
+    line-height:1;
     font-weight:900;
-    letter-spacing:0.2mm;
+    letter-spacing:-.7mm;
     white-space:nowrap;
   }
 
-  .data{
-    padding:1mm 1.2mm;
-    overflow:hidden;
-  }
-
-  .data .tit{
-    font-size:7.5pt;
-    font-weight:900;
-    line-height:1;
-  }
-
-  .data .val{
-    margin-top:1mm;
-    font-size:9.5pt;
-    font-weight:900;
-    line-height:1.05;
-  }
-
+  /* PRODUTO */
   .descricao{
-    padding:1mm 1.5mm;
     display:flex;
     align-items:center;
-    font-size:19pt;
+    font-size:15.5pt;
+    line-height:1.03;
     font-weight:900;
-    line-height:1;
     text-transform:uppercase;
     overflow:hidden;
-    border-bottom:0.45mm dashed #000;
   }
 
-  .grades{
-    display:grid;
-    grid-template-columns:27% 27% 27% 19%;
-    border-bottom:0.45mm solid #000;
+  /* GRADE 1 */
+  .grade1{
+    display:flex;
+    align-items:flex-start;
+    font-size:15pt;
+    line-height:1;
+    font-weight:900;
+    text-transform:uppercase;
+    padding-top:1mm;
+    overflow:hidden;
   }
 
-  .gbox{
+  /* QUANT / COR / TAMANHO */
+  .dados{
+    position:relative;
+    min-height:0;
+  }
+
+  .dados-esq{
+    width:67%;
+    height:100%;
     display:flex;
     flex-direction:column;
-    align-items:center;
     justify-content:center;
-    border-right:0.4mm solid #000;
-    padding:0.4mm;
-    min-width:0;
+    gap:2mm;
   }
 
-  .gbox:last-child{border-right:none;}
-
-  .gtitle{
-    font-size:7pt;
-    font-weight:900;
+  .linha{
+    font-size:14pt;
     line-height:1;
-    white-space:nowrap;
-  }
-
-  .gvalue{
-    margin-top:0.6mm;
-    font-size:13pt;
     font-weight:900;
-    line-height:1;
     text-transform:uppercase;
     white-space:nowrap;
-    overflow:hidden;
-    max-width:100%;
   }
 
-  .peso{
-    display:grid;
-    grid-template-columns:22% 78%;
-    align-items:center;
-    overflow:hidden;
-  }
-
-  .peso .ptit{
-    padding-left:1.2mm;
-    font-size:16pt;
-    font-weight:900;
-    line-height:1;
-    white-space:nowrap;
-  }
-
-  .peso .pval{
-    text-align:center;
-    font-size:34pt;
-    font-weight:900;
-    line-height:0.9;
-    white-space:nowrap;
-    overflow:hidden;
-  }
-
-  .footer{
-    background:#000;
-    color:#fff;
+  .tamanho{
+    position:absolute;
+    right:0;
+    top:0;
+    width:27mm;
+    height:14mm;
+    border:.65mm solid #000;
     display:flex;
     align-items:center;
     justify-content:center;
-    font-size:8pt;
+    font-size:30pt;
+    line-height:1;
     font-weight:900;
-    letter-spacing:0.25mm;
+  }
+
+  /* PESO */
+  .peso{
+    border-top:.5mm solid #000;
+    display:flex;
+    align-items:center;
+    font-size:23pt;
+    line-height:1;
+    font-weight:900;
     white-space:nowrap;
+    overflow:hidden;
+  }
+
+  /* RODAPÉ */
+  .rodape{
+    display:flex;
+    align-items:end;
+    justify-content:center;
+    font-size:8pt;
+    line-height:1;
+    font-weight:700;
+    white-space:nowrap;
+    overflow:hidden;
   }
 
   @media print{
-    html,body,.label{
+    html,body,.etiqueta{
       width:${w}mm !important;
       height:${h}mm !important;
       margin:0 !important;
@@ -763,55 +738,56 @@ function htmlEtiqueta(r, teste=false){
 </style>
 </head>
 <body>
-  <div class="label">
-    <div class="empresa">CAPAS PIONEIRA</div>
+  <div class="etiqueta">
 
     <div class="topo">
-      <div class="refarea">
-        <div class="ref">REF.: ${referencia}</div>
-        <div class="faixa">${teste?'ETIQUETA DE TESTE':'PESAGEM'}</div>
+      <div class="codigo-area">
+        <svg id="barcode-svg"></svg>
+        <div class="numero">${codigo}</div>
       </div>
-
-      <div class="data">
-        <div class="tit">DATA/HORA:</div>
-        <div class="val">${dataHora}</div>
-      </div>
+      <div class="marca">PIONEIRA</div>
     </div>
 
     <div class="descricao">${descricao}</div>
 
-    <div class="grades">
-      <div class="gbox">
-        <div class="gtitle">GRADE 1:</div>
-        <div class="gvalue">${grade1}</div>
+    <div class="grade1">(${grade1})</div>
+
+    <div class="dados">
+      <div class="dados-esq">
+        <div class="linha">QUANT.: ${qtd} UNID.</div>
+        <div class="linha">COR: ${grade2}</div>
       </div>
-      <div class="gbox">
-        <div class="gtitle">GRADE 2:</div>
-        <div class="gvalue">${grade2}</div>
-      </div>
-      <div class="gbox">
-        <div class="gtitle">GRADE 3:</div>
-        <div class="gvalue">${grade3}</div>
-      </div>
-      <div class="gbox">
-        <div class="gtitle">QUANTIDADE:</div>
-        <div class="gvalue">${qtd}</div>
-      </div>
+      <div class="tamanho">${grade3}</div>
     </div>
 
-    <div class="peso">
-      <div class="ptit">PESO:</div>
-      <div class="pval">${peso}</div>
-    </div>
+    <div class="peso">PESO: ${peso}</div>
 
-    <div class="footer">ESTA ETIQUETA DEVE ACOMPANHAR O VOLUME</div>
+    <div class="rodape">Pioneira Indústria Têxtil Ltda</div>
+
   </div>
+
+<script>
+window.addEventListener('load', function(){
+  try{
+    JsBarcode("#barcode-svg", `${codigo}`, {
+      format:"CODE128",
+      displayValue:false,
+      margin:0,
+      width:1.35,
+      height:34
+    });
+  }catch(e){
+    console.warn("Falha ao gerar código de barras:", e);
+  }
+});
+<\/script>
+
 </body>
 </html>`;
 }
 
 function executarImpressao(r, teste=false){
-  const janela=window.open('', '_blank', 'width=720,height=620');
+  const janela=window.open('', '_blank', 'width=760,height=620');
 
   if(!janela){
     alert('O navegador bloqueou a janela de impressão. Libere pop-ups para este site.');
@@ -827,7 +803,7 @@ function executarImpressao(r, teste=false){
       janela.focus();
       janela.print();
       janela.onafterprint=()=>janela.close();
-    },700);
+    },900);
   };
 
   return true;
