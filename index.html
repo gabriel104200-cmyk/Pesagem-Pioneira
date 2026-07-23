@@ -13,7 +13,7 @@
     }
     *{box-sizing:border-box}
     body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
-    header{background:linear-gradient(90deg,var(--primary),var(--primary2));color:#fff;padding:18px 24px}
+    header{background:#17202a;color:#fff;padding:18px 24px}
     header h1{margin:0;font-size:24px}
     header small{opacity:.9}
     .layout{display:grid;grid-template-columns:230px 1fr;min-height:calc(100vh - 79px)}
@@ -47,9 +47,30 @@
     .big-input{font-size:22px;padding:16px;border:2px solid #94a3b8}
     .kpi{font-size:30px;font-weight:bold}
     .note{padding:12px;background:#eef6ff;border-left:4px solid var(--primary);border-radius:6px}
+    .dashboard-hero{background:#17202a;color:#fff;border-radius:14px;padding:22px 24px;display:flex;justify-content:space-between;gap:20px;align-items:center;box-shadow:0 6px 18px rgba(23,32,42,.16)}
+    .dashboard-hero h2{margin:0 0 6px;font-size:26px}.dashboard-hero p{margin:0;color:#cbd5e1}
+    .hero-badge{background:#26384a;border:1px solid #3a4d60;border-radius:12px;padding:12px 16px;text-align:center;min-width:190px}
+    .hero-badge strong{display:block;font-size:17px;margin-top:4px}
+    .kpi-card{position:relative;overflow:hidden;min-height:126px}
+    .kpi-label{font-size:13px;font-weight:bold;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+    .kpi-value{font-size:34px;font-weight:800;margin-top:8px}
+    .kpi-sub{font-size:12px;color:var(--muted);margin-top:6px}
+    .kpi-icon{position:absolute;right:16px;top:14px;font-size:30px;opacity:.16}
+    .balance-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;background:#b91c1c}
+    .balance-dot.on{background:#16a34a;box-shadow:0 0 0 4px rgba(22,163,74,.12)}
+    .ref-list{display:grid;gap:10px}
+    .ref-row{display:grid;grid-template-columns:minmax(120px,1fr) 3fr 80px;gap:12px;align-items:center}
+    .ref-name{font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ref-bar{height:12px;background:#e5e7eb;border-radius:999px;overflow:hidden}
+    .ref-fill{height:100%;background:#26384a;border-radius:999px}
+    .ref-count{text-align:right;font-weight:bold}
+    .filter-grid{display:grid;grid-template-columns:180px 180px minmax(220px,1fr) auto;gap:10px;align-items:end}
+    .icon-btn{border:0;border-radius:7px;padding:7px 10px;cursor:pointer;font-weight:bold}
+    .icon-btn-danger{background:#fee2e2;color:#991b1b}
+    .empty-state{text-align:center;padding:26px;color:var(--muted)}
     @media(max-width:900px){
       .layout{grid-template-columns:1fr}nav{display:flex;overflow:auto;gap:5px}nav button{min-width:180px;margin:0}
-      .span-4,.span-6,.span-8{grid-column:span 12}
+      .span-4,.span-6,.span-8{grid-column:span 12}.filter-grid{grid-template-columns:1fr}.dashboard-hero{align-items:flex-start;flex-direction:column}.hero-badge{width:100%}.ref-row{grid-template-columns:1fr 2fr 55px}
     }
     @media print{
       body *{visibility:hidden}
@@ -80,19 +101,65 @@
 
   <main>
     <section id="inicio" class="page active">
-      <h2>Início</h2>
-      <div class="grid">
-        <div class="card span-4"><div class="muted">Produtos carregados</div><div id="kpiProdutos" class="kpi">0</div></div>
-        <div class="card span-4"><div class="muted">Pesagens registradas</div><div id="kpiPesagens" class="kpi">0</div></div>
-        <div class="card span-4"><div class="muted">Balança</div><div id="kpiBalanca" class="kpi" style="font-size:22px">Desconectada</div></div>
+      <div class="dashboard-hero">
+        <div>
+          <h2>Visão geral da pesagem</h2>
+          <p>Acompanhamento rápido dos produtos, pesagens e situação da balança.</p>
+        </div>
+        <div class="hero-badge">
+          Status da balança
+          <strong><span id="heroBalancaDot" class="balance-dot"></span><span id="heroBalanca">Desconectada</span></strong>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:16px">
+        <div class="card span-4 kpi-card">
+          <div class="kpi-icon">📦</div>
+          <div class="kpi-label">Produtos carregados</div>
+          <div id="kpiProdutos" class="kpi-value">0</div>
+          <div class="kpi-sub">Itens disponíveis para leitura</div>
+        </div>
+        <div class="card span-4 kpi-card">
+          <div class="kpi-icon">⚖️</div>
+          <div class="kpi-label">Pesagens registradas</div>
+          <div id="kpiPesagens" class="kpi-value">0</div>
+          <div class="kpi-sub">Total salvo neste computador</div>
+        </div>
+        <div class="card span-4 kpi-card">
+          <div class="kpi-icon">📅</div>
+          <div class="kpi-label">Pesagens de hoje</div>
+          <div id="kpiPesagensHoje" class="kpi-value">0</div>
+          <div class="kpi-sub" id="kpiDataHoje">Hoje</div>
+        </div>
+
         <div class="card span-12">
-          <h3>Fluxo de trabalho</h3>
-          <div class="note">
-            1. Importe a planilha de produtos uma vez neste computador.<br>
-            2. Conecte a balança em <b>Configurações</b>.<br>
-            3. Vá em <b>Pesagem</b>, passe o código de barras e clique em <b>Ler peso</b>.<br>
-            4. Salve a pesagem e imprima a etiqueta na impressora disponível naquele computador.
+          <div class="actions" style="justify-content:space-between;align-items:center;margin-bottom:14px">
+            <div>
+              <h3 style="margin:0 0 4px">Pesagens por referência</h3>
+              <div class="muted">Referências com maior quantidade de registros no histórico</div>
+            </div>
+            <span class="pill" id="refTotalInfo">0 referências pesadas</span>
           </div>
+          <div id="rankingReferencias" class="ref-list"></div>
+        </div>
+
+        <div class="card span-6">
+          <h3>Resumo de hoje</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+            <div>
+              <div class="muted">Peso total registrado</div>
+              <div id="kpiPesoHoje" style="font-size:25px;font-weight:bold;margin-top:5px">0,00 kg</div>
+            </div>
+            <div>
+              <div class="muted">Referências diferentes</div>
+              <div id="kpiRefsHoje" style="font-size:25px;font-weight:bold;margin-top:5px">0</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card span-6">
+          <h3>Última pesagem</h3>
+          <div id="ultimaPesagemInicio" class="muted">Nenhuma pesagem registrada.</div>
         </div>
       </div>
     </section>
@@ -167,13 +234,37 @@
     <section id="historico" class="page">
       <h2>Histórico de Pesagens</h2>
       <div class="card">
-        <div class="actions" style="margin-bottom:12px">
-          <button id="btnExportarCSV" class="btn btn-primary">Exportar CSV</button>
-          <button id="btnApagarHistorico" class="btn btn-danger">Apagar histórico local</button>
+        <div class="filter-grid" style="margin-bottom:14px">
+          <div>
+            <label>Data inicial</label>
+            <input id="histDataInicio" type="date">
+          </div>
+          <div>
+            <label>Data final</label>
+            <input id="histDataFim" type="date">
+          </div>
+          <div>
+            <label>Pesquisar</label>
+            <input id="histBusca" placeholder="Referência, descrição, código ou grade...">
+          </div>
+          <div class="actions">
+            <button id="btnLimparFiltrosHist" class="btn btn-light">Limpar filtros</button>
+          </div>
         </div>
+
+        <div class="actions" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+          <div><b id="histResumo">0</b><span class="muted"> registros encontrados</span></div>
+          <div class="actions">
+            <button id="btnExportarCSV" class="btn btn-primary">Exportar CSV</button>
+            <button id="btnApagarHistorico" class="btn btn-danger">Apagar todo histórico</button>
+          </div>
+        </div>
+
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Data/Hora</th><th>Etiqueta</th><th>Produto</th><th>Descrição</th><th>Grades</th><th>Qtd.</th><th>Peso</th><th>Código lido</th></tr></thead>
+            <thead>
+              <tr><th>Data/Hora</th><th>Etiqueta</th><th>Produto</th><th>Descrição</th><th>Grades</th><th>Qtd.</th><th>Peso</th><th>Código lido</th><th>Ação</th></tr>
+            </thead>
             <tbody id="tbodyHistorico"></tbody>
           </table>
         </div>
@@ -333,7 +424,10 @@ async function disconnectSerial(){
 }
 function setSerialStatus(on){
   document.getElementById('statusSerial').textContent=on?'Conectada':'Desconectada';
-  document.getElementById('kpiBalanca').textContent=on?'Conectada':'Desconectada';
+  const hero=document.getElementById('heroBalanca');
+  const dot=document.getElementById('heroBalancaDot');
+  if(hero) hero.textContent=on?'Conectada':'Desconectada';
+  if(dot) dot.classList.toggle('on',on);
 }
 async function lerPeso(){
   if(!serialPort){
@@ -570,20 +664,111 @@ async function refreshProdutos(){
   const list=!q?arr:arr.filter(p=>keynorm(Object.values(p).join(' ')).includes(q));
   document.getElementById('tbodyProdutos').innerHTML=list.slice(0,2000).map(p=>`<tr><td>${p.codProduto}</td><td>${p.descricao}</td><td>${p.grade1}</td><td>${p.grade2}</td><td>${p.grade3}</td><td>${p.unidade}</td><td>${p.codUnidade}</td><td>${p.caixa}</td><td>${p.codCaixa}</td></tr>`).join('');
 }
-async function refreshHistorico(){
+function dataLocalISO(dataISO){
+  const d=new Date(dataISO);
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dia=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dia}`;
+}
+function hojeISO(){
+  const d=new Date();
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dia=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dia}`;
+}
+async function getHistoricoFiltrado(){
   const arr=(await getAll('pesagens')).sort((a,b)=>b.dataISO.localeCompare(a.dataISO));
-  document.getElementById('tbodyHistorico').innerHTML=arr.map(r=>`<tr><td>${r.dataHora}</td><td>${r.etiqueta}</td><td>${r.codProduto}</td><td>${r.descricao}</td><td>${r.grade1||'-'} / ${r.grade2||'-'} / ${r.grade3||'-'}</td><td>${r.quantidade}</td><td>${fmtKg(r.peso)}</td><td>${r.codigoLido}</td></tr>`).join('');
+  const inicio=document.getElementById('histDataInicio')?.value||'';
+  const fim=document.getElementById('histDataFim')?.value||'';
+  const busca=keynorm(document.getElementById('histBusca')?.value||'');
+  return arr.filter(r=>{
+    const data=dataLocalISO(r.dataISO);
+    if(inicio && data<inicio) return false;
+    if(fim && data>fim) return false;
+    if(busca){
+      const texto=keynorm([r.etiqueta,r.codProduto,r.descricao,r.grade1,r.grade2,r.grade3,r.codigoLido,r.quantidade,r.peso].join(' '));
+      if(!texto.includes(busca)) return false;
+    }
+    return true;
+  });
+}
+async function refreshHistorico(){
+  const arr=await getHistoricoFiltrado();
+  const tb=document.getElementById('tbodyHistorico');
+  document.getElementById('histResumo').textContent=arr.length;
+  if(!arr.length){
+    tb.innerHTML='<tr><td colspan="9" class="empty-state">Nenhuma pesagem encontrada para os filtros informados.</td></tr>';
+    return;
+  }
+  tb.innerHTML=arr.map(r=>`<tr>
+    <td>${r.dataHora}</td><td>${r.etiqueta}</td><td><b>${r.codProduto}</b></td><td>${r.descricao}</td>
+    <td>${r.grade1||'-'} / ${r.grade2||'-'} / ${r.grade3||'-'}</td><td>${r.quantidade}</td>
+    <td><b>${fmtKg(r.peso)}</b></td><td>${r.codigoLido}</td>
+    <td><button class="icon-btn icon-btn-danger" onclick="excluirPesagemPorId('${r.id}')">Excluir</button></td>
+  </tr>`).join('');
+}
+async function excluirPesagemPorId(id){
+  const arr=await getAll('pesagens');
+  const r=arr.find(x=>x.id===id);
+  if(!r) return;
+  if(!confirm(`Excluir esta pesagem?\n\n${r.codProduto} - ${r.descricao}\n${r.dataHora}\nPeso: ${fmtKg(r.peso)}`)) return;
+  await new Promise((resolve,reject)=>{
+    const q=tx('pesagens','readwrite').delete(id);
+    q.onsuccess=resolve;
+    q.onerror=()=>reject(q.error);
+  });
+  await refreshHistorico();
+  await refreshPesagemAtual();
+  await refreshKPIs();
 }
 async function refreshKPIs(){
-  document.getElementById('kpiProdutos').textContent=(await getAll('produtos')).length;
-  document.getElementById('kpiPesagens').textContent=(await getAll('pesagens')).length;
+  const produtos=await getAll('produtos');
+  const pesagens=(await getAll('pesagens')).sort((a,b)=>b.dataISO.localeCompare(a.dataISO));
+  const hoje=hojeISO();
+  const hojeArr=pesagens.filter(r=>dataLocalISO(r.dataISO)===hoje);
+
+  document.getElementById('kpiProdutos').textContent=produtos.length;
+  document.getElementById('kpiPesagens').textContent=pesagens.length;
+  document.getElementById('kpiPesagensHoje').textContent=hojeArr.length;
+  document.getElementById('kpiDataHoje').textContent=new Date().toLocaleDateString('pt-BR');
+  document.getElementById('kpiPesoHoje').textContent=fmtKg(hojeArr.reduce((s,r)=>s+(Number(r.peso)||0),0));
+  document.getElementById('kpiRefsHoje').textContent=new Set(hojeArr.map(r=>r.codProduto)).size;
+
+  const ult=document.getElementById('ultimaPesagemInicio');
+  if(pesagens.length){
+    const r=pesagens[0];
+    ult.innerHTML=`<div style="font-size:17px;font-weight:bold;color:var(--text)">${r.codProduto} — ${r.descricao}</div>
+      <div style="margin-top:7px">${r.dataHora}</div>
+      <div style="margin-top:5px">Quantidade: <b>${r.quantidade}</b> &nbsp; • &nbsp; Peso: <b>${fmtKg(r.peso)}</b></div>`;
+  } else {
+    ult.textContent='Nenhuma pesagem registrada.';
+  }
+
+  const porRef={};
+  pesagens.forEach(r=>{
+    const k=r.codProduto||'Sem referência';
+    if(!porRef[k]) porRef[k]={cod:k,descricao:r.descricao||'',qtd:0};
+    porRef[k].qtd++;
+  });
+  const ranking=Object.values(porRef).sort((a,b)=>b.qtd-a.qtd);
+  document.getElementById('refTotalInfo').textContent=`${ranking.length} referências pesadas`;
+  const box=document.getElementById('rankingReferencias');
+  if(!ranking.length){
+    box.innerHTML='<div class="empty-state">As referências aparecerão aqui conforme as pesagens forem registradas.</div>';
+  } else {
+    const max=ranking[0].qtd||1;
+    box.innerHTML=ranking.slice(0,8).map(x=>`
+      <div class="ref-row">
+        <div class="ref-name" title="${x.cod} - ${x.descricao}">${x.cod} — ${x.descricao}</div>
+        <div class="ref-bar"><div class="ref-fill" style="width:${Math.max(4,(x.qtd/max)*100)}%"></div></div>
+        <div class="ref-count">${x.qtd}</div>
+      </div>`).join('');
+  }
 }
 async function refreshAll(){await refreshProdutos();await refreshHistorico();await refreshPesagemAtual();await refreshKPIs()}
 
 async function exportCSV(){
-  const arr=await getAll('pesagens');
+  const arr=(await getHistoricoFiltrado()).sort((a,b)=>a.dataISO.localeCompare(b.dataISO));
   const rows=[['Data/Hora','Etiqueta','Cod Produto','Descricao','Grade1','Grade2','Grade3','Quantidade','Peso','Codigo Lido','Tipo']];
-  arr.sort((a,b)=>a.dataISO.localeCompare(b.dataISO)).forEach(r=>rows.push([r.dataHora,r.etiqueta,r.codProduto,r.descricao,r.grade1,r.grade2,r.grade3,r.quantidade,String(r.peso).replace('.',','),r.codigoLido,r.tipoLeitura]));
+  arr.forEach(r=>rows.push([r.dataHora,r.etiqueta,r.codProduto,r.descricao,r.grade1,r.grade2,r.grade3,r.quantidade,String(r.peso).replace('.',','),r.codigoLido,r.tipoLeitura]));
   const csv=rows.map(r=>r.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(';')).join('\r\n');
   downloadBlob(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}),'historico_pesagens.csv');
 }
@@ -620,11 +805,27 @@ document.getElementById('btnConectar').onclick=connectSerial;
 document.getElementById('btnDesconectar').onclick=disconnectSerial;
 document.getElementById('buscaProduto').oninput=refreshProdutos;
 document.getElementById('btnExportarCSV').onclick=exportCSV;
+document.getElementById('histDataInicio').onchange=refreshHistorico;
+document.getElementById('histDataFim').onchange=refreshHistorico;
+document.getElementById('histBusca').oninput=refreshHistorico;
+document.getElementById('btnLimparFiltrosHist').onclick=()=>{
+  document.getElementById('histDataInicio').value='';
+  document.getElementById('histDataFim').value='';
+  document.getElementById('histBusca').value='';
+  refreshHistorico();
+};
 document.getElementById('btnBackup').onclick=backup;
 document.getElementById('btnRestaurar').onclick=restaurar;
 document.getElementById('btnSalvarConfig').onclick=salvarConfig;
 document.getElementById('btnLimparProdutos').onclick=async()=>{if(confirm('Apagar toda a base local de produtos deste computador?')){await clearStore('produtos');await refreshAll()}};
-document.getElementById('btnApagarHistorico').onclick=async()=>{if(confirm('Apagar todo o histórico local deste computador?')){await clearStore('pesagens');await refreshAll()}};
+document.getElementById('btnApagarHistorico').onclick=async()=>{
+  const arr=await getAll('pesagens');
+  if(!arr.length) return alert('Não há histórico para apagar.');
+  if(confirm(`ATENÇÃO: apagar TODO o histórico deste computador?\n\nSerão excluídos ${arr.length} registros. Esta ação não pode ser desfeita.`)){
+    await clearStore('pesagens');
+    await refreshAll();
+  }
+};
 document.getElementById('btnExcluirUltima').onclick=excluirUltimaPesagem;
 
 (async()=>{
