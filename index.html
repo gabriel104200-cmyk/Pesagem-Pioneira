@@ -68,9 +68,14 @@
     .icon-btn{border:0;border-radius:7px;padding:7px 10px;cursor:pointer;font-weight:bold}
     .icon-btn-danger{background:#fee2e2;color:#991b1b}
     .empty-state{text-align:center;padding:26px;color:var(--muted)}
+    .device-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .device-status{background:#26384a;border:1px solid #3a4d60;border-radius:12px;padding:12px 16px;text-align:center}
+    .device-status strong{display:block;font-size:17px;margin-top:4px}
+    .printer-dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:7px;background:#b91c1c}
+    .printer-dot.on{background:#16a34a;box-shadow:0 0 0 4px rgba(22,163,74,.12)}
     @media(max-width:900px){
       .layout{grid-template-columns:1fr}nav{display:flex;overflow:auto;gap:5px}nav button{min-width:180px;margin:0}
-      .span-4,.span-6,.span-8{grid-column:span 12}.filter-grid{grid-template-columns:1fr}.dashboard-hero{align-items:flex-start;flex-direction:column}.hero-badge{width:100%}.ref-row{grid-template-columns:1fr 2fr 55px}
+      .span-4,.span-6,.span-8{grid-column:span 12}.filter-grid{grid-template-columns:1fr}.dashboard-hero{align-items:flex-start;flex-direction:column}.hero-badge{width:100%}.device-grid{grid-template-columns:1fr;width:100%}.ref-row{grid-template-columns:1fr 2fr 55px}
     }
     @media print{
       body *{visibility:hidden}
@@ -106,9 +111,15 @@
           <h2>Visão geral da pesagem</h2>
           <p>Acompanhamento rápido dos produtos, pesagens e situação da balança.</p>
         </div>
-        <div class="hero-badge">
-          Status da balança
-          <strong><span id="heroBalancaDot" class="balance-dot"></span><span id="heroBalanca">Desconectada</span></strong>
+        <div class="device-grid">
+          <div class="device-status">
+            Balança
+            <strong><span id="heroBalancaDot" class="balance-dot"></span><span id="heroBalanca">Desconectada</span></strong>
+          </div>
+          <div class="device-status">
+            Impressora
+            <strong><span id="heroPrinterDot" class="printer-dot"></span><span id="heroPrinter">Desativada</span></strong>
+          </div>
         </div>
       </div>
 
@@ -296,11 +307,20 @@
           <p class="muted">Configuração usada: 9600 baud, 8 bits, sem paridade, 2 stop bits. O navegador pedirá para escolher o dispositivo CP210x.</p>
         </div>
         <div class="card span-6">
-          <h3>Impressora</h3>
-          <p>A impressão é feita pelo próprio navegador. Ao clicar em <b>Imprimir etiqueta</b>, selecione a Elgin ou outra impressora instalada neste computador.</p>
+          <h3>Impressora de etiquetas</h3>
+          <p>Status: <b id="statusPrinter">Desativada</b></p>
+          <div class="actions" style="margin-bottom:14px">
+            <button id="btnAtivarPrinter" class="btn btn-primary">🖨️ Ativar impressão</button>
+            <button id="btnDesativarPrinter" class="btn btn-light">Desativar</button>
+            <button id="btnTestePrinter" class="btn btn-ok">Imprimir teste</button>
+          </div>
           <div class="field"><label>Largura da etiqueta (mm)</label><input id="larguraEtiqueta" type="number" value="100"></div>
           <div class="field"><label>Altura da etiqueta (mm)</label><input id="alturaEtiqueta" type="number" value="70"></div>
           <button id="btnSalvarConfig" class="btn btn-primary">Salvar configuração</button>
+          <p class="muted" style="margin-top:12px">
+            Cada computador pode usar uma impressora diferente. No modo normal, o navegador abre a janela de impressão e você escolhe a impressora instalada naquele computador.
+            A pesagem e o histórico continuam funcionando mesmo com a impressão desativada.
+          </p>
         </div>
       </div>
     </section>
@@ -535,22 +555,73 @@ async function salvarPesagem(){
   alert('Pesagem salva: '+id);
   await refreshHistorico(); await refreshKPIs();
 }
+function montarEtiqueta(r, teste=false){
+  const w=Number(localStorage.getItem('labelW')||100);
+  const h=Number(localStorage.getItem('labelH')||70);
+  const box=document.getElementById('labelPrint');
+  box.style.display='block';
+
+  const descricao=teste?'ETIQUETA DE TESTE':r.descricao;
+  const peso=teste?'0,00 kg':fmtKg(r.peso);
+  const referencia=teste?'TESTE':r.codProduto;
+
+  box.innerHTML=`<style>@page{size:${w}mm ${h}mm;margin:0}</style>
+  <div style="width:${w}mm;height:${h}mm;padding:5mm;font-family:Arial;border:1px solid #000">
+    <div style="font-size:18px;font-weight:bold;text-align:center">CAPAS PIONEIRA</div>
+    <hr>
+    <div><b>REF.:</b> ${referencia}</div>
+    <div style="font-size:17px;font-weight:bold;margin:3px 0">${descricao}</div>
+    ${teste?'':`<div><b>GRADES:</b> ${r.grade1||'-'} / ${r.grade2||'-'} / ${r.grade3||'-'}</div>
+    <div><b>QTD.:</b> ${r.quantidade}</div>`}
+    <div style="font-size:28px;font-weight:bold;margin:7px 0"><b>PESO:</b> ${peso}</div>
+    ${teste?'<div>Impressão configurada neste computador.</div>':`<div><b>ETIQUETA:</b> ${r.etiqueta}</div><div>${r.dataHora}</div>
+    <div style="margin-top:5px;font-family:monospace;font-size:14px">${r.codigoLido}</div>`}
+  </div>`;
+  return box;
+}
+
+function executarImpressao(r, teste=false){
+  const box=montarEtiqueta(r,teste);
+  try{
+    window.print();
+  }finally{
+    setTimeout(()=>box.style.display='none',700);
+  }
+}
+
 function imprimirEtiqueta(){
   const r=ultimoRegistro;
   if(!r) return alert('Salve uma pesagem antes de imprimir.');
-  const w=Number(localStorage.getItem('labelW')||100), h=Number(localStorage.getItem('labelH')||70);
-  const box=document.getElementById('labelPrint');
-  box.style.display='block';
-  box.innerHTML=`<style>@page{size:${w}mm ${h}mm;margin:0}</style>
-  <div style="width:${w}mm;height:${h}mm;padding:5mm;font-family:Arial;border:1px solid #000">
-  <div style="font-size:18px;font-weight:bold;text-align:center">CAPAS PIONEIRA</div>
-  <hr><div><b>REF.:</b> ${r.codProduto}</div><div style="font-size:16px;font-weight:bold">${r.descricao}</div>
-  <div><b>GRADES:</b> ${r.grade1||'-'} / ${r.grade2||'-'} / ${r.grade3||'-'}</div>
-  <div><b>QTD.:</b> ${r.quantidade}</div>
-  <div style="font-size:26px;font-weight:bold;margin:5px 0"><b>PESO:</b> ${fmtKg(r.peso)}</div>
-  <div><b>ETIQUETA:</b> ${r.etiqueta}</div><div>${r.dataHora}</div>
-  <div style="margin-top:5px;font-family:monospace;font-size:14px">${r.codigoLido}</div></div>`;
-  window.print(); setTimeout(()=>box.style.display='none',500);
+  executarImpressao(r,false);
+}
+
+function impressoraAtiva(){
+  return localStorage.getItem('printerEnabled')==='1';
+}
+
+function atualizarStatusPrinter(){
+  const ativa=impressoraAtiva();
+  const status=document.getElementById('statusPrinter');
+  const hero=document.getElementById('heroPrinter');
+  const dot=document.getElementById('heroPrinterDot');
+  if(status) status.textContent=ativa?'Ativa':'Desativada';
+  if(hero) hero.textContent=ativa?'Ativa':'Desativada';
+  if(dot) dot.classList.toggle('on',ativa);
+}
+
+function ativarImpressora(){
+  localStorage.setItem('printerEnabled','1');
+  atualizarStatusPrinter();
+  alert('Impressão ativada neste computador. A próxima pesagem tentará emitir a etiqueta.');
+}
+
+function desativarImpressora(){
+  localStorage.setItem('printerEnabled','0');
+  atualizarStatusPrinter();
+}
+
+function imprimirTeste(){
+  executarImpressao(null,true);
 }
 function limparPesagem(){
   produtoAtual=null;pesoAtualNum=null;codigoLido='';ultimoRegistro=null;
@@ -650,6 +721,16 @@ async function processarCodigoAutomatico(code){
   await refreshHistorico();
   await refreshPesagemAtual();
   await refreshKPIs();
+
+  // A impressão é independente da pesagem.
+  // Mesmo que falhe ou esteja desativada, o registro já foi salvo.
+  if(impressoraAtiva()){
+    try{
+      executarImpressao(reg,false);
+    }catch(e){
+      console.warn('Falha ao imprimir etiqueta:', e);
+    }
+  }
 
   produtoAtual=null;
   codigoLido='';
@@ -817,6 +898,9 @@ document.getElementById('btnLimparFiltrosHist').onclick=()=>{
 document.getElementById('btnBackup').onclick=backup;
 document.getElementById('btnRestaurar').onclick=restaurar;
 document.getElementById('btnSalvarConfig').onclick=salvarConfig;
+document.getElementById('btnAtivarPrinter').onclick=ativarImpressora;
+document.getElementById('btnDesativarPrinter').onclick=desativarImpressora;
+document.getElementById('btnTestePrinter').onclick=imprimirTeste;
 document.getElementById('btnLimparProdutos').onclick=async()=>{if(confirm('Apagar toda a base local de produtos deste computador?')){await clearStore('produtos');await refreshAll()}};
 document.getElementById('btnApagarHistorico').onclick=async()=>{
   const arr=await getAll('pesagens');
@@ -832,6 +916,7 @@ document.getElementById('btnExcluirUltima').onclick=excluirUltimaPesagem;
   await openDB();
   document.getElementById('larguraEtiqueta').value=localStorage.getItem('labelW')||100;
   document.getElementById('alturaEtiqueta').value=localStorage.getItem('labelH')||70;
+  atualizarStatusPrinter();
   await refreshAll();
 })();
 </script>
