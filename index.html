@@ -553,258 +553,216 @@ function htmlEtiqueta(r, teste=false){
   const w=Number(localStorage.getItem('labelW')||89.5);
   const h=Number(localStorage.getItem('labelH')||60);
 
-  const referencia=teste?'TESTE':(r.codProduto||'');
-  const descricao=teste?'ETIQUETA DE TESTE':(r.descricao||'');
+  const referencia=teste?'2900':(r.codProduto||'');
+  const descricao=teste?'CONJUNTO DE PVC - COMBATE GOLA':(r.descricao||'');
   const grade1=teste?'MASCULINO':(r.grade1||'-');
   const grade2=teste?'PRETO':(r.grade2||'-');
   const grade3=teste?'G':(r.grade3||'-');
   const qtd=teste?'10':(r.quantidade||'');
   const peso=teste?'13,56 kg':fmtKg(r.peso);
-  const dataHora=teste
-    ? new Date().toLocaleString('pt-BR')
-    : (r.dataHora||new Date().toLocaleString('pt-BR'));
+  const codigo=teste?'7898712119598':(r.codigoLido||'');
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <title>Etiqueta</title>
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
-  @page {
-    size: ${w}mm ${h}mm;
-    margin: 0;
+  @page { size:${w}mm ${h}mm; margin:0; }
+
+  html,body{
+    width:${w}mm !important;
+    height:${h}mm !important;
+    margin:0 !important;
+    padding:0 !important;
+    overflow:hidden !important;
+    background:#fff !important;
   }
 
-  html, body {
-    width: ${w}mm !important;
-    height: ${h}mm !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    overflow: hidden !important;
-    background: #fff !important;
+  *{
+    box-sizing:border-box;
+    -webkit-print-color-adjust:exact !important;
+    print-color-adjust:exact !important;
   }
 
-  * {
-    box-sizing: border-box;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
+  body{
+    font-family:"Courier New", Courier, monospace;
+    color:#000;
   }
 
-  body {
-    font-family: Arial, Helvetica, sans-serif;
-    color: #000;
+  .label{
+    width:${w}mm;
+    height:${h}mm;
+    padding:2.2mm 3mm 1.8mm 3mm;
+    display:grid;
+    grid-template-rows:16mm 1fr 8mm;
+    gap:1mm;
+    overflow:hidden;
   }
 
-  .label {
-    width: ${w}mm;
-    height: ${h}mm;
-    border: 0.6mm solid #000;
-    display: grid;
-    grid-template-rows: 8mm 9mm 18mm 11mm 1fr;
-    overflow: hidden;
+  .top{
+    display:grid;
+    grid-template-columns:58% 42%;
+    gap:2mm;
+    align-items:start;
   }
 
-  .empresa {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 18pt;
-    line-height: 1;
-    font-weight: 900;
-    border-bottom: 0.5mm solid #000;
-    white-space: nowrap;
+  .barcode-wrap{
+    width:100%;
+    overflow:hidden;
   }
 
-  .cabecalho {
-    display: grid;
-    grid-template-columns: 58% 42%;
-    border-bottom: 0.5mm solid #000;
+  #barcode-svg{
+    width:100%;
+    height:11mm;
+    display:block;
   }
 
-  .refbox {
-    padding: 1mm 1.5mm;
-    border-right: 0.5mm solid #000;
-    overflow: hidden;
+  .barcode-number{
+    font-size:10pt;
+    font-weight:700;
+    margin-top:-0.4mm;
+    letter-spacing:0.2mm;
   }
 
-  .ref {
-    font-size: 14pt;
-    font-weight: 900;
-    line-height: 1;
-    white-space: nowrap;
+  .brand{
+    height:13mm;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18pt;
+    font-weight:900;
+    letter-spacing:-0.5mm;
+    border:0.5mm solid #000;
   }
 
-  .tipo {
-    margin-top: 0.8mm;
-    background: #000;
-    color: #fff;
-    font-size: 12pt;
-    line-height: 1.25;
-    font-weight: 900;
-    text-align: center;
-    padding: 0.5mm;
-    white-space: nowrap;
-    overflow: hidden;
+  .middle{
+    position:relative;
+    min-height:0;
+    overflow:hidden;
   }
 
-  .data {
-    padding: 1mm 1.2mm;
-    overflow: hidden;
+  .descricao{
+    font-size:13.5pt;
+    font-weight:700;
+    line-height:1.04;
+    text-transform:uppercase;
+    max-width:100%;
+    max-height:10mm;
+    overflow:hidden;
+    margin-bottom:1mm;
   }
 
-  .data .titulo {
-    font-size: 8pt;
-    font-weight: 900;
-    line-height: 1;
+  .g1{
+    font-size:12pt;
+    font-weight:700;
+    margin-bottom:1mm;
   }
 
-  .data .valor {
-    margin-top: 1mm;
-    font-size: 10pt;
-    font-weight: 900;
-    line-height: 1.1;
+  .linha{
+    font-size:11.5pt;
+    font-weight:700;
+    line-height:1.25;
+    max-width:62mm;
   }
 
-  .descricao {
-    padding: 1.2mm 1.5mm;
-    font-size: 20pt;
-    font-weight: 900;
-    line-height: 0.98;
-    text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    overflow: hidden;
-    border-bottom: 0.5mm solid #000;
+  .size-box{
+    position:absolute;
+    right:0;
+    bottom:0;
+    width:22mm;
+    height:15mm;
+    border:0.6mm solid #000;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:27pt;
+    font-weight:900;
+    font-family:Arial,Helvetica,sans-serif;
   }
 
-  .grades {
-    display: grid;
-    grid-template-columns: 27% 27% 27% 19%;
-    border-bottom: 0.5mm solid #000;
+  .bottom{
+    display:grid;
+    grid-template-columns:1fr auto;
+    align-items:end;
+    border-top:0.4mm solid #000;
+    padding-top:1mm;
   }
 
-  .grade {
-    border-right: 0.45mm solid #000;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 0.5mm;
-    overflow: hidden;
+  .peso{
+    font-family:Arial,Helvetica,sans-serif;
+    font-size:18pt;
+    font-weight:900;
+    line-height:1;
+    white-space:nowrap;
   }
 
-  .grade:last-child {
-    border-right: none;
+  .footer{
+    font-size:7pt;
+    text-align:right;
+    white-space:nowrap;
   }
 
-  .grade .titulo {
-    font-size: 7pt;
-    font-weight: 900;
-    line-height: 1;
-    white-space: nowrap;
-  }
-
-  .grade .valor {
-    margin-top: 0.5mm;
-    font-size: 13pt;
-    font-weight: 900;
-    line-height: 1;
-    text-transform: uppercase;
-    white-space: nowrap;
-    overflow: hidden;
-    max-width: 100%;
-  }
-
-  .peso {
-    display: grid;
-    grid-template-columns: 23% 77%;
-    align-items: center;
-    min-height: 0;
-  }
-
-  .peso .titulo {
-    padding-left: 1.5mm;
-    font-size: 16pt;
-    font-weight: 900;
-    line-height: 1;
-  }
-
-  .peso .valor {
-    text-align: center;
-    font-size: 33pt;
-    font-weight: 900;
-    line-height: 0.9;
-    white-space: nowrap;
-    padding-right: 1mm;
-  }
-
-  @media print {
-    html, body {
-      width: ${w}mm !important;
-      height: ${h}mm !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      overflow: hidden !important;
-    }
-
-    .label {
-      width: ${w}mm !important;
-      height: ${h}mm !important;
-      page-break-inside: avoid !important;
-      break-inside: avoid !important;
-      page-break-after: avoid !important;
+  @media print{
+    html,body,.label{
+      width:${w}mm !important;
+      height:${h}mm !important;
+      margin:0 !important;
+      page-break-inside:avoid !important;
+      break-inside:avoid !important;
+      page-break-after:avoid !important;
     }
   }
 </style>
 </head>
 <body>
   <div class="label">
-    <div class="empresa">CAPAS PIONEIRA</div>
-
-    <div class="cabecalho">
-      <div class="refbox">
-        <div class="ref">REF.: ${referencia}</div>
-        <div class="tipo">${teste?'ETIQUETA DE TESTE':'PESAGEM'}</div>
+    <div class="top">
+      <div class="barcode-wrap">
+        <svg id="barcode-svg"></svg>
+        <div class="barcode-number">${codigo}</div>
       </div>
-
-      <div class="data">
-        <div class="titulo">DATA/HORA:</div>
-        <div class="valor">${dataHora}</div>
-      </div>
+      <div class="brand">PIONEIRA</div>
     </div>
 
-    <div class="descricao">${descricao}</div>
-
-    <div class="grades">
-      <div class="grade">
-        <div class="titulo">GRADE 1</div>
-        <div class="valor">${grade1}</div>
-      </div>
-      <div class="grade">
-        <div class="titulo">GRADE 2</div>
-        <div class="valor">${grade2}</div>
-      </div>
-      <div class="grade">
-        <div class="titulo">GRADE 3</div>
-        <div class="valor">${grade3}</div>
-      </div>
-      <div class="grade">
-        <div class="titulo">QTD.</div>
-        <div class="valor">${qtd}</div>
-      </div>
+    <div class="middle">
+      <div class="descricao">${descricao}</div>
+      <div class="g1">(${grade1})</div>
+      <div class="linha">Quant.: ${qtd} Unid.</div>
+      <div class="linha">Cor: ${grade2}</div>
+      <div class="size-box">${grade3}</div>
     </div>
 
-    <div class="peso">
-      <div class="titulo">PESO:</div>
-      <div class="valor">${peso}</div>
+    <div class="bottom">
+      <div class="peso">PESO: ${peso}</div>
+      <div class="footer">Pioneira Indústria Têxtil Ltda</div>
     </div>
   </div>
+
+<script>
+window.addEventListener('load', function(){
+  try{
+    JsBarcode("#barcode-svg", `${codigo}`, {
+      format:"CODE128",
+      displayValue:false,
+      margin:0,
+      width:1.4,
+      height:36
+    });
+  }catch(e){
+    console.warn("Falha ao gerar código de barras", e);
+  }
+});
+<\/script>
 </body>
 </html>`;
 }
 
 function executarImpressao(r, teste=false){
-  const janela=window.open('', '_blank', 'width=700,height=600');
+  const janela=window.open('', '_blank', 'width=720,height=620');
 
   if(!janela){
     alert('O navegador bloqueou a janela de impressão. Libere pop-ups para este site.');
@@ -820,7 +778,7 @@ function executarImpressao(r, teste=false){
       janela.focus();
       janela.print();
       janela.onafterprint=()=>janela.close();
-    },250);
+    },700);
   };
 
   return true;
