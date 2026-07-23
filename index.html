@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sistema de Pesagem Pioneira</title>
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
   <style>
     :root{
       --bg:#f4f6f8; --card:#fff; --text:#1f2937; --muted:#6b7280;
@@ -549,239 +550,141 @@ async function salvarPesagem(){
   alert('Pesagem salva: '+id);
   await refreshHistorico(); await refreshKPIs();
 }
+function gerarBarcodeSVG(codigo){
+  try{
+    if(typeof JsBarcode==='undefined' || !codigo) return '';
+    const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    JsBarcode(svg,String(codigo),{
+      format:'CODE128',
+      displayValue:false,
+      margin:0,
+      width:1.15,
+      height:34
+    });
+    return svg.outerHTML;
+  }catch(e){
+    console.warn('Falha ao gerar código de barras:',e);
+    return '';
+  }
+}
+
 function htmlEtiqueta(r, teste=false){
   const w=Number(localStorage.getItem('labelW')||89.5);
   const h=Number(localStorage.getItem('labelH')||60);
 
-  const descricao=teste?'CONJUNTO DE PVC - COMBATE GOLA':(r.descricao||'');
-  const grade1=teste?'MASCULINO':(r.grade1||'-');
-  const grade2=teste?'PRETO':(r.grade2||'-');
-  const grade3=teste?'G':(r.grade3||'-');
-  const qtd=teste?'10':(r.quantidade||'');
-  const peso=teste?'13,56 KG':fmtKg(r.peso).toUpperCase();
-  const codigo=teste?'7898712119598':(r.codigoLido||'');
+  const descricao=teste?'CONJUNTO DE PVC - COMBATE GOLA':(r?.descricao||'');
+  const grade1=teste?'MASCULINO':(r?.grade1||'-');
+  const grade2=teste?'PRETO':(r?.grade2||'-');
+  const grade3=teste?'G':(r?.grade3||'-');
+  const qtd=teste?'10':(r?.quantidade||'');
+  const peso=teste?'13,56 KG':fmtKg(r?.peso).toUpperCase();
+  const codigo=teste?'7898712119598':String(r?.codigoLido||'');
+  const barcode=gerarBarcodeSVG(codigo);
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <title>Etiqueta</title>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
-  @page{
-    size:${w}mm ${h}mm;
-    margin:0;
-  }
+@page{size:${w}mm ${h}mm;margin:0}
+html,body{
+  width:${w}mm!important;height:${h}mm!important;
+  margin:0!important;padding:0!important;overflow:hidden!important;background:#fff!important;
+}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+body{font-family:Arial,Helvetica,sans-serif;color:#000}
+.etiqueta{
+  width:${w}mm;height:${h}mm;
+  padding:1.6mm 2mm 1.2mm;
+  display:grid;
+  grid-template-rows:14mm 11mm 8mm 13mm 10mm 1fr;
+  overflow:hidden;
+}
 
-  html,body{
-    width:${w}mm !important;
-    height:${h}mm !important;
-    margin:0 !important;
-    padding:0 !important;
-    overflow:hidden !important;
-    background:#fff !important;
-  }
+/* barcode + marca */
+.topo{display:grid;grid-template-columns:52% 48%;gap:2mm;overflow:hidden}
+.barcode-area{overflow:hidden}
+.barcode-area svg{width:100%;height:9.5mm;display:block}
+.codigo{font-size:9.5pt;font-weight:900;line-height:1;margin-top:.1mm;letter-spacing:.15mm}
+.marca{
+  display:flex;align-items:center;justify-content:center;
+  font-size:20pt;font-weight:900;line-height:1;white-space:nowrap;
+}
 
-  *{
-    box-sizing:border-box;
-    -webkit-print-color-adjust:exact !important;
-    print-color-adjust:exact !important;
-  }
+/* descrição e grade 1 */
+.descricao{
+  display:flex;align-items:center;
+  font-size:15pt;font-weight:900;line-height:1.02;text-transform:uppercase;
+  overflow:hidden;
+}
+.grade1{
+  display:flex;align-items:center;
+  font-size:15pt;font-weight:900;line-height:1;text-transform:uppercase;
+  overflow:hidden;
+}
 
-  body{
-    font-family:Arial,Helvetica,sans-serif;
-    color:#000;
-  }
+/* quantidade / cor / tamanho */
+.dados{position:relative;overflow:hidden}
+.dados-esq{
+  width:66%;height:100%;
+  display:flex;flex-direction:column;justify-content:center;gap:2mm;
+}
+.linha{font-size:13.5pt;font-weight:900;line-height:1;text-transform:uppercase;white-space:nowrap}
+.tamanho{
+  position:absolute;right:0;top:0;
+  width:24mm;height:12mm;border:.55mm solid #000;
+  display:flex;align-items:center;justify-content:center;
+  font-size:29pt;font-weight:900;line-height:1;
+}
 
-  .etiqueta{
-    width:${w}mm;
-    height:${h}mm;
-    padding:2mm 2.5mm 1.6mm;
-    overflow:hidden;
-    display:grid;
-    grid-template-rows:15mm 14mm 15mm 11mm 1fr;
-  }
+/* peso */
+.peso{
+  border-top:.45mm solid #000;
+  display:flex;align-items:center;
+  font-size:24pt;font-weight:900;line-height:1;white-space:nowrap;overflow:hidden;
+}
 
-  /* TOPO */
-  .topo{
-    display:grid;
-    grid-template-columns:49% 51%;
-    align-items:start;
-    min-height:0;
-  }
+/* rodapé */
+.rodape{
+  display:flex;align-items:end;justify-content:center;
+  font-size:8.5pt;font-weight:700;line-height:1;white-space:nowrap;
+}
 
-  .codigo-area{
-    overflow:hidden;
+@media print{
+  html,body,.etiqueta{
+    width:${w}mm!important;height:${h}mm!important;margin:0!important;
+    page-break-inside:avoid!important;break-inside:avoid!important;page-break-after:avoid!important;
   }
-
-  #barcode-svg{
-    width:100%;
-    height:10mm;
-    display:block;
-  }
-
-  .numero{
-    margin-top:-0.3mm;
-    font-size:10pt;
-    line-height:1;
-    font-weight:900;
-    letter-spacing:.25mm;
-  }
-
-  .marca{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    height:12mm;
-    font-size:20pt;
-    line-height:1;
-    font-weight:900;
-    letter-spacing:-.7mm;
-    white-space:nowrap;
-  }
-
-  /* PRODUTO */
-  .descricao{
-    display:flex;
-    align-items:center;
-    font-size:15.5pt;
-    line-height:1.03;
-    font-weight:900;
-    text-transform:uppercase;
-    overflow:hidden;
-  }
-
-  /* GRADE 1 */
-  .grade1{
-    display:flex;
-    align-items:flex-start;
-    font-size:15pt;
-    line-height:1;
-    font-weight:900;
-    text-transform:uppercase;
-    padding-top:1mm;
-    overflow:hidden;
-  }
-
-  /* QUANT / COR / TAMANHO */
-  .dados{
-    position:relative;
-    min-height:0;
-  }
-
-  .dados-esq{
-    width:67%;
-    height:100%;
-    display:flex;
-    flex-direction:column;
-    justify-content:center;
-    gap:2mm;
-  }
-
-  .linha{
-    font-size:14pt;
-    line-height:1;
-    font-weight:900;
-    text-transform:uppercase;
-    white-space:nowrap;
-  }
-
-  .tamanho{
-    position:absolute;
-    right:0;
-    top:0;
-    width:27mm;
-    height:14mm;
-    border:.65mm solid #000;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    font-size:30pt;
-    line-height:1;
-    font-weight:900;
-  }
-
-  /* PESO */
-  .peso{
-    border-top:.5mm solid #000;
-    display:flex;
-    align-items:center;
-    font-size:23pt;
-    line-height:1;
-    font-weight:900;
-    white-space:nowrap;
-    overflow:hidden;
-  }
-
-  /* RODAPÉ */
-  .rodape{
-    display:flex;
-    align-items:end;
-    justify-content:center;
-    font-size:8pt;
-    line-height:1;
-    font-weight:700;
-    white-space:nowrap;
-    overflow:hidden;
-  }
-
-  @media print{
-    html,body,.etiqueta{
-      width:${w}mm !important;
-      height:${h}mm !important;
-      margin:0 !important;
-      page-break-inside:avoid !important;
-      break-inside:avoid !important;
-      page-break-after:avoid !important;
-    }
-  }
+}
 </style>
 </head>
 <body>
-  <div class="etiqueta">
-
-    <div class="topo">
-      <div class="codigo-area">
-        <svg id="barcode-svg"></svg>
-        <div class="numero">${codigo}</div>
-      </div>
-      <div class="marca">PIONEIRA</div>
+<div class="etiqueta">
+  <div class="topo">
+    <div class="barcode-area">
+      ${barcode}
+      <div class="codigo">${codigo}</div>
     </div>
-
-    <div class="descricao">${descricao}</div>
-
-    <div class="grade1">(${grade1})</div>
-
-    <div class="dados">
-      <div class="dados-esq">
-        <div class="linha">QUANT.: ${qtd} UNID.</div>
-        <div class="linha">COR: ${grade2}</div>
-      </div>
-      <div class="tamanho">${grade3}</div>
-    </div>
-
-    <div class="peso">PESO: ${peso}</div>
-
-    <div class="rodape">Pioneira Indústria Têxtil Ltda</div>
-
+    <div class="marca">PIONEIRA</div>
   </div>
 
-<script>
-window.addEventListener('load', function(){
-  try{
-    JsBarcode("#barcode-svg", `${codigo}`, {
-      format:"CODE128",
-      displayValue:false,
-      margin:0,
-      width:1.35,
-      height:34
-    });
-  }catch(e){
-    console.warn("Falha ao gerar código de barras:", e);
-  }
-});
-<\/script>
+  <div class="descricao">${descricao}</div>
 
+  <div class="grade1">(${grade1})</div>
+
+  <div class="dados">
+    <div class="dados-esq">
+      <div class="linha">QUANT.: ${qtd} UNID.</div>
+      <div class="linha">COR: ${grade2}</div>
+    </div>
+    <div class="tamanho">${grade3}</div>
+  </div>
+
+  <div class="peso">PESO: ${peso}</div>
+
+  <div class="rodape">Pioneira Indústria Têxtil Ltda</div>
+</div>
 </body>
 </html>`;
 }
@@ -795,7 +698,7 @@ function executarImpressao(r, teste=false){
   }
 
   janela.document.open();
-  janela.document.write(htmlEtiqueta(r, teste));
+  janela.document.write(htmlEtiqueta(r,teste));
   janela.document.close();
 
   janela.onload=()=>{
@@ -803,7 +706,7 @@ function executarImpressao(r, teste=false){
       janela.focus();
       janela.print();
       janela.onafterprint=()=>janela.close();
-    },900);
+    },300);
   };
 
   return true;
