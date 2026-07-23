@@ -553,107 +553,252 @@ function htmlEtiqueta(r, teste=false){
   const w=Number(localStorage.getItem('labelW')||89.5);
   const h=Number(localStorage.getItem('labelH')||60);
 
-  const descricao=teste?'ETIQUETA DE TESTE':r.descricao;
-  const peso=teste?'0,00 kg':fmtKg(r.peso);
-  const referencia=teste?'TESTE':r.codProduto;
-  const grades=teste?'':`${r.grade1||'-'} | ${r.grade2||'-'} | ${r.grade3||'-'}`;
-  const qtd=teste?'':r.quantidade;
+  const referencia=teste?'TESTE':(r.codProduto||'');
+  const descricao=teste?'ETIQUETA DE TESTE':(r.descricao||'');
+  const grade1=teste?'MASCULINO':(r.grade1||'-');
+  const grade2=teste?'PRETO':(r.grade2||'-');
+  const grade3=teste?'G':(r.grade3||'-');
+  const qtd=teste?'10':(r.quantidade||'');
+  const peso=teste?'13,56 kg':fmtKg(r.peso);
+  const dataHora=teste
+    ? new Date().toLocaleString('pt-BR')
+    : (r.dataHora||new Date().toLocaleString('pt-BR'));
 
   return `<!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <title>Etiqueta</title>
 <style>
-@page { size:${w}mm ${h}mm; margin:0; }
-html,body{
-  width:${w}mm !important;
-  height:${h}mm !important;
-  margin:0 !important;
-  padding:0 !important;
-  overflow:hidden !important;
-  background:#fff;
-}
-*{box-sizing:border-box}
-body{font-family:Arial,Helvetica,sans-serif;color:#000}
-.etiqueta{
-  width:${w}mm;
-  height:${h}mm;
-  padding:1.5mm 2mm;
-  display:flex;
-  flex-direction:column;
-  overflow:hidden;
-}
-.empresa{
-  height:9mm;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  font-size:20pt;
-  font-weight:900;
-  line-height:1;
-  border-bottom:1.5px solid #000;
-}
-.ref{
-  font-size:15pt;
-  font-weight:900;
-  line-height:1;
-  margin-top:1.3mm;
-  white-space:nowrap;
-  overflow:hidden;
-}
-.descricao{
-  font-size:17pt;
-  font-weight:900;
-  line-height:1.02;
-  text-transform:uppercase;
-  margin-top:1mm;
-  height:12mm;
-  overflow:hidden;
-}
-.info{
-  font-size:11pt;
-  font-weight:800;
-  line-height:1.05;
-  margin-top:.8mm;
-  white-space:nowrap;
-  overflow:hidden;
-}
-.peso{
-  margin-top:auto;
-  width:100%;
-  text-align:center;
-  font-size:32pt;
-  font-weight:900;
-  line-height:.95;
-  white-space:nowrap;
-  padding-top:1mm;
-  border-top:1.5px solid #000;
-}
-@media print{
-  html,body,.etiqueta{
-    width:${w}mm !important;
-    height:${h}mm !important;
-    margin:0 !important;
-    padding-top:0;
-    page-break-after:avoid !important;
-    page-break-inside:avoid !important;
+  @page {
+    size: ${w}mm ${h}mm;
+    margin: 0;
   }
-  .etiqueta{padding:1.5mm 2mm !important}
-}
+
+  html, body {
+    width: ${w}mm !important;
+    height: ${h}mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    background: #fff !important;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000;
+  }
+
+  .label {
+    width: ${w}mm;
+    height: ${h}mm;
+    border: 0.6mm solid #000;
+    display: grid;
+    grid-template-rows: 8mm 9mm 18mm 11mm 1fr;
+    overflow: hidden;
+  }
+
+  .empresa {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18pt;
+    line-height: 1;
+    font-weight: 900;
+    border-bottom: 0.5mm solid #000;
+    white-space: nowrap;
+  }
+
+  .cabecalho {
+    display: grid;
+    grid-template-columns: 58% 42%;
+    border-bottom: 0.5mm solid #000;
+  }
+
+  .refbox {
+    padding: 1mm 1.5mm;
+    border-right: 0.5mm solid #000;
+    overflow: hidden;
+  }
+
+  .ref {
+    font-size: 14pt;
+    font-weight: 900;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .tipo {
+    margin-top: 0.8mm;
+    background: #000;
+    color: #fff;
+    font-size: 12pt;
+    line-height: 1.25;
+    font-weight: 900;
+    text-align: center;
+    padding: 0.5mm;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .data {
+    padding: 1mm 1.2mm;
+    overflow: hidden;
+  }
+
+  .data .titulo {
+    font-size: 8pt;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .data .valor {
+    margin-top: 1mm;
+    font-size: 10pt;
+    font-weight: 900;
+    line-height: 1.1;
+  }
+
+  .descricao {
+    padding: 1.2mm 1.5mm;
+    font-size: 20pt;
+    font-weight: 900;
+    line-height: 0.98;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    border-bottom: 0.5mm solid #000;
+  }
+
+  .grades {
+    display: grid;
+    grid-template-columns: 27% 27% 27% 19%;
+    border-bottom: 0.5mm solid #000;
+  }
+
+  .grade {
+    border-right: 0.45mm solid #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5mm;
+    overflow: hidden;
+  }
+
+  .grade:last-child {
+    border-right: none;
+  }
+
+  .grade .titulo {
+    font-size: 7pt;
+    font-weight: 900;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .grade .valor {
+    margin-top: 0.5mm;
+    font-size: 13pt;
+    font-weight: 900;
+    line-height: 1;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 100%;
+  }
+
+  .peso {
+    display: grid;
+    grid-template-columns: 23% 77%;
+    align-items: center;
+    min-height: 0;
+  }
+
+  .peso .titulo {
+    padding-left: 1.5mm;
+    font-size: 16pt;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .peso .valor {
+    text-align: center;
+    font-size: 33pt;
+    font-weight: 900;
+    line-height: 0.9;
+    white-space: nowrap;
+    padding-right: 1mm;
+  }
+
+  @media print {
+    html, body {
+      width: ${w}mm !important;
+      height: ${h}mm !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+    }
+
+    .label {
+      width: ${w}mm !important;
+      height: ${h}mm !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+      page-break-after: avoid !important;
+    }
+  }
 </style>
 </head>
 <body>
-<div class="etiqueta">
-  <div class="empresa">CAPAS PIONEIRA</div>
-  <div class="ref">REF.: ${referencia}</div>
-  <div class="descricao">${descricao}</div>
-  ${teste
-    ? `<div class="info">ETIQUETA 89,5 × 60 mm</div>`
-    : `<div class="info">${grades}</div><div class="info">QTD.: ${qtd}</div>`
-  }
-  <div class="peso">PESO: ${peso}</div>
-</div>
+  <div class="label">
+    <div class="empresa">CAPAS PIONEIRA</div>
+
+    <div class="cabecalho">
+      <div class="refbox">
+        <div class="ref">REF.: ${referencia}</div>
+        <div class="tipo">${teste?'ETIQUETA DE TESTE':'PESAGEM'}</div>
+      </div>
+
+      <div class="data">
+        <div class="titulo">DATA/HORA:</div>
+        <div class="valor">${dataHora}</div>
+      </div>
+    </div>
+
+    <div class="descricao">${descricao}</div>
+
+    <div class="grades">
+      <div class="grade">
+        <div class="titulo">GRADE 1</div>
+        <div class="valor">${grade1}</div>
+      </div>
+      <div class="grade">
+        <div class="titulo">GRADE 2</div>
+        <div class="valor">${grade2}</div>
+      </div>
+      <div class="grade">
+        <div class="titulo">GRADE 3</div>
+        <div class="valor">${grade3}</div>
+      </div>
+      <div class="grade">
+        <div class="titulo">QTD.</div>
+        <div class="valor">${qtd}</div>
+      </div>
+    </div>
+
+    <div class="peso">
+      <div class="titulo">PESO:</div>
+      <div class="valor">${peso}</div>
+    </div>
+  </div>
 </body>
 </html>`;
 }
