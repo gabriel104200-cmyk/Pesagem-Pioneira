@@ -569,9 +569,6 @@ function gerarBarcodeSVG(codigo){
 }
 
 function htmlEtiqueta(r, teste=false){
-  const papelW=Number(localStorage.getItem('labelW')||89.5);
-  const papelH=Number(localStorage.getItem('labelH')||60);
-
   const descricao=teste?'CONJUNTO DE PVC - COMBATE GOLA':(r?.descricao||'');
   const grade1=teste?'MASCULINO':(r?.grade1||'-');
   const grade2=teste?'PRETO':(r?.grade2||'-');
@@ -581,6 +578,12 @@ function htmlEtiqueta(r, teste=false){
   const codigo=teste?'7898712119598':String(r?.codigoLido||'');
   const barcode=gerarBarcodeSVG(codigo);
 
+  /*
+    IMPORTANTE:
+    A Elgin deste computador está tratando a mídia 89,5 x 60 como "retrato".
+    Por isso imprimimos uma página física 60 x 89,5 e giramos o conteúdo 90°.
+    Isso força o resultado final a ocupar a etiqueta horizontal inteira.
+  */
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -588,86 +591,84 @@ function htmlEtiqueta(r, teste=false){
 <title>Etiqueta</title>
 <style>
 @page{
-  size:${papelW}mm ${papelH}mm;
+  size:60mm 89.5mm;
   margin:0;
 }
+
 html,body{
-  width:${papelW}mm!important;
-  height:${papelH}mm!important;
+  width:60mm!important;
+  height:89.5mm!important;
   margin:0!important;
   padding:0!important;
   overflow:hidden!important;
   background:#fff!important;
 }
+
 *{
   box-sizing:border-box;
   -webkit-print-color-adjust:exact!important;
   print-color-adjust:exact!important;
 }
+
 body{
   position:relative;
   font-family:Arial,Helvetica,sans-serif;
   color:#000;
 }
 
-/* Compensa a rotação de 90° que a Elgin está aplicando. */
-.rotacionada{
+/* Área final da etiqueta: 89,5 mm de largura x 60 mm de altura */
+.rotulo{
   position:absolute;
-  left:0;
+  left:60mm;
   top:0;
-  width:${papelH}mm;
-  height:${papelW}mm;
+  width:89.5mm;
+  height:60mm;
   transform-origin:top left;
-  transform:translateX(${papelW}mm) rotate(90deg);
-}
-
-.etiqueta{
-  width:${papelH}mm;
-  height:${papelW}mm;
-  padding:1.8mm 2mm 1.5mm;
+  transform:rotate(90deg);
+  padding:1.7mm 2.2mm 1.5mm;
   display:grid;
-  grid-template-rows:18mm 18mm 10mm 19mm 14mm 1fr;
+  grid-template-rows:14mm 11mm 8mm 13mm 10mm 1fr;
   overflow:hidden;
+  background:#fff;
 }
 
 /* TOPO */
 .topo{
   display:grid;
-  grid-template-columns:54% 46%;
+  grid-template-columns:52% 48%;
   gap:2mm;
-  min-height:0;
   overflow:hidden;
 }
 .barcode-area{overflow:hidden}
 .barcode-area svg{
   width:100%;
-  height:12mm;
+  height:9.5mm;
   display:block;
 }
 .codigo{
+  margin-top:.1mm;
   font-size:10pt;
-  font-weight:900;
   line-height:1;
-  margin-top:.2mm;
+  font-weight:900;
   letter-spacing:.15mm;
 }
 .marca{
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:19pt;
-  font-weight:900;
+  font-size:20pt;
   line-height:1;
+  font-weight:900;
   white-space:nowrap;
 }
 
-/* PRODUTO */
+/* DESCRIÇÃO */
 .descricao{
   display:flex;
   align-items:center;
-  font-size:18pt;
-  font-weight:900;
+  font-size:15.5pt;
   line-height:1.02;
+  font-weight:900;
   text-transform:uppercase;
   overflow:hidden;
 }
@@ -676,46 +677,46 @@ body{
 .grade1{
   display:flex;
   align-items:center;
-  font-size:16pt;
-  font-weight:900;
+  font-size:15pt;
   line-height:1;
+  font-weight:900;
   text-transform:uppercase;
   overflow:hidden;
 }
 
-/* QUANT / COR / TAMANHO */
+/* QUANTIDADE / COR / TAMANHO */
 .dados{
   position:relative;
   overflow:hidden;
 }
 .dados-esq{
-  width:61%;
+  width:66%;
   height:100%;
   display:flex;
   flex-direction:column;
   justify-content:center;
-  gap:3mm;
+  gap:2mm;
 }
 .linha{
-  font-size:15pt;
-  font-weight:900;
+  font-size:13.5pt;
   line-height:1;
+  font-weight:900;
   text-transform:uppercase;
   white-space:nowrap;
 }
 .tamanho{
   position:absolute;
   right:0;
-  top:1mm;
-  width:20mm;
-  height:16mm;
-  border:.6mm solid #000;
+  top:.5mm;
+  width:24mm;
+  height:12mm;
+  border:.55mm solid #000;
   display:flex;
   align-items:center;
   justify-content:center;
-  font-size:31pt;
-  font-weight:900;
+  font-size:29pt;
   line-height:1;
+  font-weight:900;
 }
 
 /* PESO */
@@ -723,10 +724,9 @@ body{
   border-top:.5mm solid #000;
   display:flex;
   align-items:center;
-  justify-content:flex-start;
-  font-size:25pt;
-  font-weight:900;
+  font-size:24pt;
   line-height:1;
+  font-weight:900;
   white-space:nowrap;
   overflow:hidden;
 }
@@ -736,56 +736,50 @@ body{
   display:flex;
   align-items:flex-end;
   justify-content:center;
-  font-size:9pt;
-  font-weight:700;
+  font-size:8.5pt;
   line-height:1;
+  font-weight:700;
   white-space:nowrap;
 }
 
 @media print{
   html,body{
-    width:${papelW}mm!important;
-    height:${papelH}mm!important;
+    width:60mm!important;
+    height:89.5mm!important;
     margin:0!important;
     padding:0!important;
-  }
-  .rotacionada{
-    width:${papelH}mm!important;
-    height:${papelW}mm!important;
   }
 }
 </style>
 </head>
 <body>
-  <div class="rotacionada">
-    <div class="etiqueta">
 
-      <div class="topo">
-        <div class="barcode-area">
-          ${barcode}
-          <div class="codigo">${codigo}</div>
-        </div>
-        <div class="marca">PIONEIRA</div>
-      </div>
-
-      <div class="descricao">${descricao}</div>
-
-      <div class="grade1">(${grade1})</div>
-
-      <div class="dados">
-        <div class="dados-esq">
-          <div class="linha">QUANT.: ${qtd} UNID.</div>
-          <div class="linha">COR: ${grade2}</div>
-        </div>
-        <div class="tamanho">${grade3}</div>
-      </div>
-
-      <div class="peso">PESO: ${peso}</div>
-
-      <div class="rodape">Pioneira Indústria Têxtil Ltda</div>
-
+<div class="rotulo">
+  <div class="topo">
+    <div class="barcode-area">
+      ${barcode}
+      <div class="codigo">${codigo}</div>
     </div>
+    <div class="marca">PIONEIRA</div>
   </div>
+
+  <div class="descricao">${descricao}</div>
+
+  <div class="grade1">(${grade1})</div>
+
+  <div class="dados">
+    <div class="dados-esq">
+      <div class="linha">QUANT.: ${qtd} UNID.</div>
+      <div class="linha">COR: ${grade2}</div>
+    </div>
+    <div class="tamanho">${grade3}</div>
+  </div>
+
+  <div class="peso">PESO: ${peso}</div>
+
+  <div class="rodape">Pioneira Indústria Têxtil Ltda</div>
+</div>
+
 </body>
 </html>`;
 }
