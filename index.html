@@ -553,21 +553,22 @@ function htmlEtiqueta(r, teste=false){
   const w=Number(localStorage.getItem('labelW')||89.5);
   const h=Number(localStorage.getItem('labelH')||60);
 
-  const referencia=teste?'2900':(r.codProduto||'');
-  const descricao=teste?'CONJUNTO DE PVC - COMBATE GOLA':(r.descricao||'');
+  const referencia=teste?'TESTE':(r.codProduto||'');
+  const descricao=teste?'CONJUNTO DE PVC COMBATE GOLA':(r.descricao||'');
   const grade1=teste?'MASCULINO':(r.grade1||'-');
   const grade2=teste?'PRETO':(r.grade2||'-');
   const grade3=teste?'G':(r.grade3||'-');
   const qtd=teste?'10':(r.quantidade||'');
   const peso=teste?'13,56 kg':fmtKg(r.peso);
-  const codigo=teste?'7898712119598':(r.codigoLido||'');
+  const dataHora=teste
+    ? new Date().toLocaleString('pt-BR')
+    : (r.dataHora||new Date().toLocaleString('pt-BR'));
 
   return `<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
 <title>Etiqueta</title>
-<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <style>
   @page { size:${w}mm ${h}mm; margin:0; }
 
@@ -587,122 +588,165 @@ function htmlEtiqueta(r, teste=false){
   }
 
   body{
-    font-family:"Courier New", Courier, monospace;
+    font-family:Arial,Helvetica,sans-serif;
     color:#000;
   }
 
   .label{
     width:${w}mm;
     height:${h}mm;
-    padding:2.2mm 3mm 1.8mm 3mm;
+    border:0.5mm solid #000;
     display:grid;
-    grid-template-rows:16mm 1fr 8mm;
-    gap:1mm;
+    grid-template-rows:8mm 10mm 18mm 10mm 1fr 5mm;
     overflow:hidden;
+    background:#fff;
   }
 
-  .top{
-    display:grid;
-    grid-template-columns:58% 42%;
-    gap:2mm;
-    align-items:start;
-  }
-
-  .barcode-wrap{
-    width:100%;
-    overflow:hidden;
-  }
-
-  #barcode-svg{
-    width:100%;
-    height:11mm;
-    display:block;
-  }
-
-  .barcode-number{
-    font-size:10pt;
-    font-weight:700;
-    margin-top:-0.4mm;
-    letter-spacing:0.2mm;
-  }
-
-  .brand{
-    height:13mm;
+  .empresa{
     display:flex;
     align-items:center;
     justify-content:center;
-    text-align:center;
-    font-family:Arial,Helvetica,sans-serif;
     font-size:18pt;
     font-weight:900;
-    letter-spacing:-0.5mm;
-    border:0.5mm solid #000;
+    line-height:1;
+    border-bottom:0.45mm solid #000;
+    white-space:nowrap;
   }
 
-  .middle{
-    position:relative;
-    min-height:0;
+  .topo{
+    display:grid;
+    grid-template-columns:66% 34%;
+    border-bottom:0.45mm solid #000;
+  }
+
+  .refarea{
+    display:grid;
+    grid-template-rows:1fr 5mm;
+    border-right:0.45mm solid #000;
+    min-width:0;
+  }
+
+  .ref{
+    display:flex;
+    align-items:center;
+    padding:0 1.2mm;
+    font-size:14pt;
+    font-weight:900;
+    white-space:nowrap;
     overflow:hidden;
+  }
+
+  .faixa{
+    background:#000;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:11pt;
+    font-weight:900;
+    letter-spacing:0.2mm;
+    white-space:nowrap;
+  }
+
+  .data{
+    padding:1mm 1.2mm;
+    overflow:hidden;
+  }
+
+  .data .tit{
+    font-size:7.5pt;
+    font-weight:900;
+    line-height:1;
+  }
+
+  .data .val{
+    margin-top:1mm;
+    font-size:9.5pt;
+    font-weight:900;
+    line-height:1.05;
   }
 
   .descricao{
-    font-size:13.5pt;
-    font-weight:700;
-    line-height:1.04;
-    text-transform:uppercase;
-    max-width:100%;
-    max-height:10mm;
-    overflow:hidden;
-    margin-bottom:1mm;
-  }
-
-  .g1{
-    font-size:12pt;
-    font-weight:700;
-    margin-bottom:1mm;
-  }
-
-  .linha{
-    font-size:11.5pt;
-    font-weight:700;
-    line-height:1.25;
-    max-width:62mm;
-  }
-
-  .size-box{
-    position:absolute;
-    right:0;
-    bottom:0;
-    width:22mm;
-    height:15mm;
-    border:0.6mm solid #000;
+    padding:1mm 1.5mm;
     display:flex;
     align-items:center;
-    justify-content:center;
-    font-size:27pt;
+    font-size:19pt;
     font-weight:900;
-    font-family:Arial,Helvetica,sans-serif;
+    line-height:1;
+    text-transform:uppercase;
+    overflow:hidden;
+    border-bottom:0.45mm dashed #000;
   }
 
-  .bottom{
+  .grades{
     display:grid;
-    grid-template-columns:1fr auto;
-    align-items:end;
-    border-top:0.4mm solid #000;
-    padding-top:1mm;
+    grid-template-columns:27% 27% 27% 19%;
+    border-bottom:0.45mm solid #000;
   }
 
-  .peso{
-    font-family:Arial,Helvetica,sans-serif;
-    font-size:18pt;
+  .gbox{
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    border-right:0.4mm solid #000;
+    padding:0.4mm;
+    min-width:0;
+  }
+
+  .gbox:last-child{border-right:none;}
+
+  .gtitle{
+    font-size:7pt;
     font-weight:900;
     line-height:1;
     white-space:nowrap;
   }
 
+  .gvalue{
+    margin-top:0.6mm;
+    font-size:13pt;
+    font-weight:900;
+    line-height:1;
+    text-transform:uppercase;
+    white-space:nowrap;
+    overflow:hidden;
+    max-width:100%;
+  }
+
+  .peso{
+    display:grid;
+    grid-template-columns:22% 78%;
+    align-items:center;
+    overflow:hidden;
+  }
+
+  .peso .ptit{
+    padding-left:1.2mm;
+    font-size:16pt;
+    font-weight:900;
+    line-height:1;
+    white-space:nowrap;
+  }
+
+  .peso .pval{
+    text-align:center;
+    font-size:34pt;
+    font-weight:900;
+    line-height:0.9;
+    white-space:nowrap;
+    overflow:hidden;
+  }
+
   .footer{
-    font-size:7pt;
-    text-align:right;
+    background:#000;
+    color:#fff;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:8pt;
+    font-weight:900;
+    letter-spacing:0.25mm;
     white-space:nowrap;
   }
 
@@ -720,43 +764,48 @@ function htmlEtiqueta(r, teste=false){
 </head>
 <body>
   <div class="label">
-    <div class="top">
-      <div class="barcode-wrap">
-        <svg id="barcode-svg"></svg>
-        <div class="barcode-number">${codigo}</div>
+    <div class="empresa">CAPAS PIONEIRA</div>
+
+    <div class="topo">
+      <div class="refarea">
+        <div class="ref">REF.: ${referencia}</div>
+        <div class="faixa">${teste?'ETIQUETA DE TESTE':'PESAGEM'}</div>
       </div>
-      <div class="brand">PIONEIRA</div>
+
+      <div class="data">
+        <div class="tit">DATA/HORA:</div>
+        <div class="val">${dataHora}</div>
+      </div>
     </div>
 
-    <div class="middle">
-      <div class="descricao">${descricao}</div>
-      <div class="g1">(${grade1})</div>
-      <div class="linha">Quant.: ${qtd} Unid.</div>
-      <div class="linha">Cor: ${grade2}</div>
-      <div class="size-box">${grade3}</div>
+    <div class="descricao">${descricao}</div>
+
+    <div class="grades">
+      <div class="gbox">
+        <div class="gtitle">GRADE 1:</div>
+        <div class="gvalue">${grade1}</div>
+      </div>
+      <div class="gbox">
+        <div class="gtitle">GRADE 2:</div>
+        <div class="gvalue">${grade2}</div>
+      </div>
+      <div class="gbox">
+        <div class="gtitle">GRADE 3:</div>
+        <div class="gvalue">${grade3}</div>
+      </div>
+      <div class="gbox">
+        <div class="gtitle">QUANTIDADE:</div>
+        <div class="gvalue">${qtd}</div>
+      </div>
     </div>
 
-    <div class="bottom">
-      <div class="peso">PESO: ${peso}</div>
-      <div class="footer">Pioneira Indústria Têxtil Ltda</div>
+    <div class="peso">
+      <div class="ptit">PESO:</div>
+      <div class="pval">${peso}</div>
     </div>
+
+    <div class="footer">ESTA ETIQUETA DEVE ACOMPANHAR O VOLUME</div>
   </div>
-
-<script>
-window.addEventListener('load', function(){
-  try{
-    JsBarcode("#barcode-svg", `${codigo}`, {
-      format:"CODE128",
-      displayValue:false,
-      margin:0,
-      width:1.4,
-      height:36
-    });
-  }catch(e){
-    console.warn("Falha ao gerar código de barras", e);
-  }
-});
-<\/script>
 </body>
 </html>`;
 }
